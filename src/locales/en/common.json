@@ -1,0 +1,10 @@
+{
+  "app": {
+    "name": "Mossread",
+    "tagline": "A calm place to read your own PDFs.",
+    "privacy": "Your files stay on this device. Nothing is uploaded."
+  },
+  "home": {
+    "status": "Early build. Opening PDFs comes next."
+  }
+}

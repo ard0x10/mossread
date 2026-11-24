@@ -1,0 +1,102 @@
+/* Phone first: base rules target 360-430 px screens, wider layouts only add. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Off-white and off-black on purpose: full contrast tires the eyes. */
+  --bg: #f3f1ea;
+  --text: #272b25;
+  --muted: #5c6459;
+  --accent: #4d6a43;
+  --line: #dbd8cd;
+
+  --gutter: 1rem;
+  --tap: 2.75rem;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 100%;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161a15;
+    --text: #dde2d7;
+    --muted: #98a190;
+    --accent: #93ad86;
+    --line: #2a3027;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-block-size: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100dvh;
+  padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
+  padding-inline: max(var(--gutter), env(safe-area-inset-left), env(safe-area-inset-right));
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--tap);
+  border-block-end: 1px solid var(--line);
+}
+
+.wordmark {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+
+.home {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+  inline-size: 100%;
+  max-inline-size: 34rem;
+  margin-inline: auto;
+  padding-block: 2rem;
+}
+
+.home-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 6.5vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.home-note,
+.home-status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.home-status {
+  font-size: 0.875rem;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --gutter: 2rem;
+  }
+}
