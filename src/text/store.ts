@@ -18,6 +18,18 @@ export interface Section {
   hasText: boolean
 }
 
+/** Reads the text of pages that have none of their own, such as scans. */
+export interface OcrSource {
+  /** Pages read on an earlier visit. */
+  saved: ReadonlyMap<number, RawPage>
+  recognize(page: number): Promise<RawPage>
+}
+
+// Scanned pages are read around the reader only: these many before (the
+// reading view's page-break mending looks two pages back) and after.
+const OCR_BEHIND = 2
+const OCR_AHEAD = 3
+
 interface CachedSection {
   inputs: Array<PageLayout | undefined>
   value: Section
@@ -40,6 +52,10 @@ export class TextStore {
   private running = false
   private destroyed = false
   private notifyQueued = false
+  private ocr: OcrSource | null = null
+  private readonly ocrPages = new Map<number, RawPage>()
+  private readonly ocrFailed = new Set<number>()
+  private ocrRunning = false
 
   constructor(doc: PDFDocumentProxy) {
     this.doc = doc
@@ -57,6 +73,36 @@ export class TextStore {
   setFocus(page: number) {
     this.focus = Math.min(Math.max(1, Math.round(page)), this.total)
     void this.pump()
+    void this.pumpOcr()
+  }
+
+  /**
+   * Starts reading the text of pages that have none, around the reader.
+   * Pages already laid out without text are laid out again. A second call
+   * hands the work to a new source and keeps what was read.
+   */
+  enableOcr(source: OcrSource) {
+    const first = this.ocr === null
+    this.ocr = source
+    for (const [page, raw] of source.saved) if (!this.ocrPages.has(page)) this.ocrPages.set(page, raw)
+    this.ocrFailed.clear()
+    if (first) {
+      this.layouts.clear()
+      this.sections.clear()
+    }
+    this.queueNotify()
+    void this.pumpOcr()
+  }
+
+  ocrEnabled = (): boolean => this.ocr !== null
+
+  /** A page with no text of its own whose text has not been read yet. */
+  private ocrPending(page: number): boolean {
+    return this.needsOcr(page) && !this.ocrPages.has(page) && !this.ocrFailed.has(page)
+  }
+
+  private needsOcr(page: number): boolean {
+    return this.ocr !== null && this.raw.has(page) && !this.withText.has(page)
   }
 
   /** Stops reading pages. Subscribers remove themselves. */
@@ -69,6 +115,7 @@ export class TextStore {
     if (!this.destroyed) return
     this.destroyed = false
     void this.pump()
+    void this.pumpOcr()
   }
 
   /** True once every page has been read (or failed to read). */
@@ -76,12 +123,12 @@ export class TextStore {
     return this.raw.size + this.failed.size >= this.total
   }
 
-  private pagesWithText = 0
+  private readonly withText = new Set<number>()
 
   /** Enough pages have been read to say this PDF has no text layer at all (a scan). */
   noTextLayer = (): boolean => {
     const checked = this.raw.size + this.failed.size
-    return this.pagesWithText === 0 && checked >= Math.min(this.total, 6)
+    return this.withText.size === 0 && checked >= Math.min(this.total, 6)
   }
 
   private windowRange(page: number): [number, number] {
@@ -91,7 +138,10 @@ export class TextStore {
   private ready(page: number): boolean {
     const [lo, hi] = this.windowRange(page)
     for (let n = lo; n <= hi; n++) if (!this.raw.has(n) && !this.failed.has(n)) return false
-    return true
+    // A scanned page waits for its own text; scanned neighbours still being
+    // read are left out of its window rather than waited for, so the first
+    // page shows after one page is read, and a layout never changes once made.
+    return !this.ocrPending(page)
   }
 
   layout(page: number, cleanup: boolean): PageLayout | undefined {
@@ -109,7 +159,8 @@ export class TextStore {
     const window: RawPage[] = []
     let index = 0
     for (let n = lo; n <= hi; n++) {
-      const raw = this.raw.get(n)
+      if (n !== page && this.ocrPending(n)) continue
+      const raw = this.ocrPages.get(n) ?? this.raw.get(n)
       if (!raw) continue
       if (n === page) index = window.length
       window.push(raw)
@@ -194,17 +245,50 @@ export class TextStore {
           const page = await this.doc.getPage(n)
           const raw = await extractPage(page)
           this.raw.set(n, raw)
-          if (raw.items.some((item) => item.str.trim() !== '')) this.pagesWithText++
+          if (raw.items.some((item) => item.str.trim() !== '')) this.withText.add(n)
         } catch {
           if (this.destroyed) return
           this.failed.add(n)
         }
         this.queueNotify()
+        if (this.ocr) void this.pumpOcr()
         // Leaves room for input and drawing between pages.
         await new Promise((resolve) => setTimeout(resolve, 0))
       }
     } finally {
       this.running = false
+    }
+  }
+
+  private nextOcrPage(): number | null {
+    // The reader's page, then the ones after it before the ones behind.
+    for (let distance = 0; distance <= Math.max(OCR_AHEAD, OCR_BEHIND); distance++) {
+      const candidates = distance <= OCR_AHEAD ? [this.focus + distance] : []
+      if (distance > 0 && distance <= OCR_BEHIND) candidates.push(this.focus - distance)
+      for (const n of candidates) if (n >= 1 && n <= this.total && this.ocrPending(n)) return n
+    }
+    return null
+  }
+
+  private async pumpOcr() {
+    if (this.ocrRunning || !this.ocr) return
+    this.ocrRunning = true
+    try {
+      while (!this.destroyed && this.ocr) {
+        const n = this.nextOcrPage()
+        if (n === null) break
+        const source: OcrSource = this.ocr
+        try {
+          this.ocrPages.set(n, await source.recognize(n))
+        } catch {
+          if (this.destroyed) return
+          // A source that was replaced meanwhile failed by being stopped, not on this page.
+          if (source === this.ocr) this.ocrFailed.add(n)
+        }
+        this.queueNotify()
+      }
+    } finally {
+      this.ocrRunning = false
     }
   }
 }

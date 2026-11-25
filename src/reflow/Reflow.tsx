@@ -13,6 +13,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Locator } from '../focus/stream'
+import type { OcrLang } from '../ocr/engine'
+import { OcrOffer } from '../ocr/OcrOffer'
 import type { Block } from '../text/layout'
 import type { TextStore } from '../text/store'
 import {
@@ -64,6 +66,8 @@ interface ReflowProps {
   onShowPage: (position: Position) => void
   /** A tap on the text that is not on a button; the height is in screen space. */
   onTap: (clientY: number) => void
+  /** Starts reading the text of a scanned PDF; offered when it has none. */
+  onRecognise: (lang: OcrLang) => void
   handle: Ref<ReflowHandle>
 }
 
@@ -78,8 +82,17 @@ function blockKey(block: Block): string {
   return `${block.kind[0]}:${first.page}:${first.y}:${first.offset}`
 }
 
-export function Reflow({ store, settings, start, topInset, onPageChange, onShowPage, onTap, handle }: ReflowProps) {
-  const { t } = useTranslation()
+export function Reflow({
+  store,
+  settings,
+  start,
+  topInset,
+  onPageChange,
+  onShowPage,
+  onTap,
+  onRecognise,
+  handle,
+}: ReflowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
   const pending = useRef<Position | null>(start)
@@ -90,7 +103,9 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
   const anchor = useRef<{ element: Element; offset: number; top: number; spot: Position } | null>(null)
   const lastPage = useRef(start.page)
   const { cleanup } = settings
-  const noText = useSyncExternalStore(store.subscribe, store.noTextLayer)
+  const scanned = useSyncExternalStore(store.subscribe, store.noTextLayer)
+  const recognising = useSyncExternalStore(store.subscribe, store.ocrEnabled)
+  const noText = scanned && !recognising
 
   const readingTop = useCallback(() => {
     const scroller = scrollerRef.current
@@ -395,7 +410,7 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
       <div ref={columnRef} className="reflow-column">
         {noText ? (
           <div className="reflow-notice">
-            <p>{t('reflow.noText')}</p>
+            <OcrOffer onStart={onRecognise} />
           </div>
         ) : (
           pages.map((page) => (

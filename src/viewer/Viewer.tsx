@@ -6,7 +6,8 @@ import { LineFocus, type LineFocusHandle } from '../focus/LineFocus'
 import { useFocusSettings } from '../focus/settings'
 import type { Locator, Scope, Spot } from '../focus/stream'
 import { useBackHandler } from '../lib/backStack'
-import type { SavedPosition } from '../library/db'
+import { getOcrPages, putOcrPage, updateBook, type SavedPosition } from '../library/db'
+import { isOcrLang, OcrEngine, type OcrLang } from '../ocr/engine'
 import type { OpenedPdf } from '../pdf/pdfjs'
 import { Reflow, type Position, type ReflowHandle } from '../reflow/Reflow'
 import { ReflowSettingsSheet } from '../reflow/ReflowSettingsSheet'
@@ -26,6 +27,10 @@ interface ViewerProps {
   fileName: string
   /** Where this book was left last time, if it is in the library. */
   start?: SavedPosition | null
+  /** Library id, or null when the book is not kept. */
+  bookId?: string | null
+  /** Language this scanned book's text was read in before. */
+  ocrLang?: string | null
   /** Called with the reading position as it changes, for the library. */
   onPosition?: (position: SavedPosition) => void
   onClose: () => void
@@ -73,7 +78,7 @@ const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5]
 
 const clampZoom = (zoom: number) => Math.min(Math.max(zoom, MIN_ZOOM), MAX_ZOOM)
 
-export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProps) {
+export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrLang, onPosition, onClose }: ViewerProps) {
   const { doc } = pdf
   const { t } = useTranslation()
   // A book from the library reopens in the view it was left in.
@@ -125,6 +130,39 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
     store?.resume()
     return () => store?.destroy()
   }, [store])
+
+  // A scanned book's text is read on this device once the reader asks, and
+  // again on later visits in the language they chose; pages read are kept.
+  const [ocrLang, setOcrLang] = useState<OcrLang | null>(() => (isOcrLang(savedOcrLang) ? savedOcrLang : null))
+  useEffect(() => {
+    if (!store || !ocrLang) return
+    const engine = new OcrEngine(ocrLang)
+    let cancelled = false
+    const saved = bookId ? getOcrPages(bookId).catch(() => new Map()) : Promise.resolve(new Map())
+    void saved.then((pages) => {
+      if (cancelled) return
+      store.enableOcr({
+        saved: pages,
+        recognize: async (page) => {
+          const raw = await engine.recognize(doc, page)
+          if (bookId) void putOcrPage(bookId, page, raw).catch(() => {})
+          return raw
+        },
+      })
+    })
+    return () => {
+      cancelled = true
+      engine.stop()
+    }
+  }, [store, ocrLang, bookId, doc])
+
+  const recognise = useCallback(
+    (lang: OcrLang) => {
+      setOcrLang(lang)
+      if (bookId) void updateBook(bookId, { ocrLang: lang }).catch(() => {})
+    },
+    [bookId],
+  )
 
   const total = doc.numPages
   const pages = useMemo(() => Array.from({ length: total }, (_, i) => i + 1), [total])
@@ -618,6 +656,7 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
           topInset={topInset}
           onPageChange={setTextPage}
           onShowPage={(spot) => switchMode('page', spot)}
+          onRecognise={recognise}
           onTap={(clientY) => {
             if (lineMode) lineRef.current?.tap(clientY)
             else setChromeVisible((visible) => !visible)

@@ -31,6 +31,10 @@ your files are never uploaded, and there is no account and no tracking.
   page, a range of pages or a chapter.
 - **Library.** Books you open stay on your device and reopen where you left
   them. You can see how much space they take and delete any of them.
+- **Scanned PDFs.** A PDF made only of pictures of pages can be read as text
+  too. Mossread recognises the text on your device, page by page as you read,
+  in English or Turkish, and keeps it with the book. The recogniser is
+  downloaded the first time it is used and then works offline.
 - **Offline and installable.** After the first visit Mossread opens without a
   connection. Add it to your home screen to use it like an app. On Android,
   installed Mossread shows up when you share a PDF from another app.

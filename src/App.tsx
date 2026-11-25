@@ -26,22 +26,24 @@ interface OpenBook {
   /** Library id, or null when this book is not kept. */
   id: string | null
   start: SavedPosition | null
+  /** Language a scanned book's text was read in before; reading resumes in it. */
+  ocrLang: string | null
 }
 
 /**
  * Finds the file in the library, or adds it there when remembering is on.
  * Storage that is missing, blocked or full only means the book is not kept.
  */
-async function keep(pdf: OpenedPdf, file: File): Promise<Pick<OpenBook, 'id' | 'start'>> {
+async function keep(pdf: OpenedPdf, file: File): Promise<Pick<OpenBook, 'id' | 'start' | 'ocrLang'>> {
   try {
     const id = await fingerprint(file)
     const existing = await getBook(id)
     const now = Date.now()
     if (existing) {
       void updateBook(id, { openedAt: now })
-      return { id, start: existing.position }
+      return { id, start: existing.position, ocrLang: existing.ocrLang ?? null }
     }
-    if (!readRemember()) return { id: null, start: null }
+    if (!readRemember()) return { id: null, start: null, ocrLang: null }
     const pages = pdf.doc.numPages
     await addBook(
       { id, name: file.name, size: file.size, pages, addedAt: now, openedAt: now, progress: 0, position: null, cover: null },
@@ -51,9 +53,9 @@ async function keep(pdf: OpenedPdf, file: File): Promise<Pick<OpenBook, 'id' | '
     setTimeout(() => {
       void makeCover(pdf.doc).then((cover) => (cover ? updateBook(id, { cover }) : undefined))
     }, COVER_DELAY)
-    return { id, start: null }
+    return { id, start: null, ocrLang: null }
   } catch {
-    return { id: null, start: null }
+    return { id: null, start: null, ocrLang: null }
   }
 }
 
@@ -92,6 +94,8 @@ export default function App() {
         pdf={book.pdf}
         fileName={book.name}
         start={book.start}
+        bookId={book.id}
+        ocrLang={book.ocrLang}
         onPosition={book.id ? savePosition : undefined}
         onClose={close}
       />

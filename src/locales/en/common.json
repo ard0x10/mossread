@@ -55,8 +55,7 @@
     "reading": "Reading page {{page, number}}…",
     "pageWithoutText": "Page {{page, number}} has no text to show here.",
     "showPage": "Show page",
-    "figure": "Figure or table · page {{page, number}}",
-    "noText": "This PDF has no text to show as reading text. It may be a scanned image; switch to Page to read it."
+    "figure": "Figure or table · page {{page, number}}"
   },
   "focus": {
     "modeFocus": "Focus",
@@ -108,6 +107,17 @@
     "previousLineLabel": "Previous line",
     "nextLine": "Line ▶",
     "nextLineLabel": "Next line"
+  },
+  "ocr": {
+    "title": "This PDF is a scanned image.",
+    "body": "Mossread can read the text from its pages on this device. Pages are read as you go and kept with the book.",
+    "language": "Language of the book",
+    "lang": {
+      "eng": "English",
+      "tur": "Türkçe"
+    },
+    "start": "Recognise text · {{size}}",
+    "note": "Downloaded once, then it works offline. To read the scan as it is, switch to Page."
   },
   "contents": {
     "title": "Contents",

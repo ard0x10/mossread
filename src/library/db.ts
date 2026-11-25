@@ -1,5 +1,8 @@
 // The library lives in this browser's IndexedDB. Nothing in it leaves the
-// device: the PDF itself, a small cover picture and where the reader stopped.
+// device: the PDF itself, a small cover picture, where the reader stopped and,
+// for a scanned book, the text read from its pages.
+
+import type { RawPage } from '../text/layout'
 
 export type ViewMode = 'page' | 'text'
 
@@ -23,12 +26,16 @@ export interface Book {
   position: SavedPosition | null
   /** First page as a small JPEG data URL. */
   cover: string | null
+  /** Language the text of this scanned book is read in, once the reader started that. */
+  ocrLang?: string
 }
 
 const DB_NAME = 'mossread'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const BOOKS = 'books'
 const FILES = 'files'
+/** Text read from scanned pages, keyed by [book id, page]. */
+const OCR = 'ocr'
 
 let opening: Promise<IDBDatabase> | null = null
 
@@ -39,6 +46,7 @@ function db(): Promise<IDBDatabase> {
       const database = request.result
       if (!database.objectStoreNames.contains(BOOKS)) database.createObjectStore(BOOKS, { keyPath: 'id' })
       if (!database.objectStoreNames.contains(FILES)) database.createObjectStore(FILES)
+      if (!database.objectStoreNames.contains(OCR)) database.createObjectStore(OCR)
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
@@ -98,11 +106,32 @@ export async function getFile(id: string): Promise<Blob | undefined> {
   return result(tx.objectStore(FILES).get(id) as IDBRequest<Blob | undefined>)
 }
 
-/** Removes the book, its file, its cover and its position. Nothing is kept. */
+const ocrRange = (id: string) => IDBKeyRange.bound([id, 0], [id, Infinity])
+
+/** Removes the book, its file, its cover, its position and any text read from it. Nothing is kept. */
 export async function deleteBook(id: string): Promise<void> {
-  const tx = (await db()).transaction([BOOKS, FILES], 'readwrite')
+  const tx = (await db()).transaction([BOOKS, FILES, OCR], 'readwrite')
   tx.objectStore(BOOKS).delete(id)
   tx.objectStore(FILES).delete(id)
+  tx.objectStore(OCR).delete(ocrRange(id))
+  await done(tx)
+}
+
+/** Text read from this book's scanned pages on earlier visits, by page. */
+export async function getOcrPages(id: string): Promise<Map<number, RawPage>> {
+  const tx = (await db()).transaction(OCR, 'readonly')
+  const store = tx.objectStore(OCR)
+  const range = ocrRange(id)
+  const [keys, values] = await Promise.all([
+    result(store.getAllKeys(range) as unknown as IDBRequest<Array<[string, number]>>),
+    result(store.getAll(range) as IDBRequest<RawPage[]>),
+  ])
+  return new Map(keys.map((key, k) => [key[1], values[k]]))
+}
+
+export async function putOcrPage(id: string, page: number, raw: RawPage): Promise<void> {
+  const tx = (await db()).transaction(OCR, 'readwrite')
+  tx.objectStore(OCR).put(raw, [id, page])
   await done(tx)
 }
 

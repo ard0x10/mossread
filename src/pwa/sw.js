@@ -3,12 +3,16 @@
 
 const VERSION = __VERSION__
 const FILES = __FILES__
+const OCR_BASE = __OCR_BASE__
 
 const PREFIX = 'mossread-app-'
 const CURRENT = PREFIX + VERSION
 // A file shared to the app from another one waits here until the page picks it up.
 const SHARE_CACHE = 'mossread-share'
 const SHARE_KEY = '/shared-file'
+// Text recognition files, kept from the first time a reader uses them. The
+// folder name carries the tesseract.js version, so a new version is a new folder.
+const OCR_CACHE = 'mossread-ocr'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,6 +34,9 @@ self.addEventListener('activate', (event) => {
       const names = (await caches.keys()).filter((name) => name.startsWith(PREFIX) && name !== CURRENT)
       const keep = names.at(-1)
       await Promise.all(names.filter((name) => name !== keep).map((name) => caches.delete(name)))
+      const ocr = await caches.open(OCR_CACHE)
+      const stale = (await ocr.keys()).filter((request) => !new URL(request.url).pathname.startsWith(OCR_BASE))
+      await Promise.all(stale.map((request) => ocr.delete(request)))
       await self.clients.claim()
     })(),
   )
@@ -46,6 +53,15 @@ async function fromCache(request) {
     if (older) return older
   }
   return undefined
+}
+
+async function fromOcrCache(request, path) {
+  const cache = await caches.open(OCR_CACHE)
+  const hit = await cache.match(path)
+  if (hit) return hit
+  const response = await fetch(request)
+  if (response.ok) await cache.put(path, response.clone())
+  return response
 }
 
 async function receiveShare(request) {
@@ -83,6 +99,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => (await caches.open(CURRENT)).match('/index.html').then((hit) => hit ?? fetch(request)))(),
     )
+    return
+  }
+
+  if (url.pathname.startsWith(OCR_BASE)) {
+    event.respondWith(fromOcrCache(request, url.pathname))
     return
   }
 
