@@ -293,8 +293,12 @@
     padding-inline: 0.375rem;
   }
 
+  .viewer-bottombar .bar-mode {
+    padding-inline: 0.875rem;
+  }
+
   .viewer-bottombar .viewer-page-indicator {
-    padding-inline: 0.625rem;
+    padding-inline: 0.5rem;
   }
 }
 

@@ -12,6 +12,7 @@ import { Reflow, type Position, type ReflowHandle } from '../reflow/Reflow'
 import { ReflowSettingsSheet } from '../reflow/ReflowSettingsSheet'
 import { FONT_STACKS, useReflowSettings } from '../reflow/settings'
 import { TextStore } from '../text/store'
+import { ContentsIcon, HomeIcon, SettingsIcon } from '../ui/icons'
 import { ContentsSheet } from './ContentsSheet'
 import { GoToSheet } from './GoToSheet'
 import { PageView, type Size } from './PageView'
@@ -579,8 +580,14 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
   return (
     <div className={viewerClass} style={viewerStyle}>
       <header ref={topBarRef} className="viewer-bar viewer-topbar">
-        <button type="button" className="button-quiet" onClick={closeBook}>
-          {t('viewer.close')}
+        <button
+          type="button"
+          className="bar-icon"
+          aria-label={t('viewer.home')}
+          title={t('viewer.home')}
+          onClick={closeBook}
+        >
+          <HomeIcon />
         </button>
         <h1 className="viewer-title">{fileName}</h1>
         <div className="mode-switch" role="group" aria-label={t('viewer.modeLabel')}>
@@ -698,10 +705,16 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
         </nav>
       ) : (
         <nav ref={bottomBarRef} className="viewer-bar viewer-bottombar" aria-label={t('viewer.toolbarLabel')}>
-          <button type="button" className="button-quiet" onClick={() => setSheet('contents')}>
-            {t('viewer.contents')}
+          <button
+            type="button"
+            className="bar-icon"
+            aria-label={t('viewer.contents')}
+            title={t('viewer.contents')}
+            onClick={() => setSheet('contents')}
+          >
+            <ContentsIcon />
           </button>
-          <button type="button" className="button-quiet" onClick={() => startReading('focus')}>
+          <button type="button" className="bar-mode" onClick={() => startReading('focus')}>
             {t('focus.modeFocus')}
           </button>
           <button
@@ -712,11 +725,17 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
           >
             {t('viewer.pageIndicator', { current: shownPage, total })}
           </button>
-          <button type="button" className="button-quiet" onClick={() => startReading('line')}>
+          <button type="button" className="bar-mode" onClick={() => startReading('line')}>
             {t('focus.modeLine')}
           </button>
-          <button type="button" className="button-quiet" onClick={() => setSheet('settings')}>
-            {t('viewer.settings')}
+          <button
+            type="button"
+            className="bar-icon"
+            aria-label={t('viewer.settings')}
+            title={t('viewer.settings')}
+            onClick={() => setSheet('settings')}
+          >
+            <SettingsIcon />
           </button>
         </nav>
       )}

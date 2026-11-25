@@ -39,7 +39,7 @@
     "close": "Don’t show again"
   },
   "viewer": {
-    "close": "Close",
+    "home": "Home",
     "contents": "Contents",
     "settings": "Settings",
     "documentLabel": "{{name}}",

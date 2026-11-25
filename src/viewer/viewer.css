@@ -83,11 +83,49 @@
 
 .viewer-page-indicator {
   min-block-size: var(--tap);
-  padding-inline: 1rem;
-  border: 1px solid var(--line);
+  padding-inline: 0.75rem;
+  border: 0;
   border-radius: 999px;
   background: transparent;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* Bottom bar: icons at the two ends, the two reading modes as soft filled
+   buttons, the page number as plain text between them. */
+
+.bar-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+}
+
+.bar-mode {
+  flex: none;
+  min-block-size: 2.5rem;
+  padding-inline: 1.125rem;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (hover: hover) {
+  .bar-icon:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  .bar-mode:hover {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
 }
 
 /* Scrolling area. Pinch is handled by the app (pan stays native), so the page
