@@ -16,7 +16,23 @@
     "passwordLabel": "Password",
     "passwordSubmit": "Open",
     "passwordWrong": "That password didn't work. Try again.",
-    "passwordCancel": "Cancel"
+    "passwordCancel": "Cancel",
+    "errorMissing": "This book is no longer on this device. Open the PDF again to read it."
+  },
+  "library": {
+    "title": "Your library",
+    "openLabel": "{{name}}, {{progress, number(style: percent; maximumFractionDigits: 0)}} read",
+    "progress": "{{value, number(style: percent; maximumFractionDigits: 0)}}",
+    "usage_one": "{{count, number}} book · {{size}} on this device",
+    "usage_other": "{{count, number}} books · {{size}} on this device",
+    "remember": "Remember opened files",
+    "rememberHint": "Keep PDFs on this device so you can come back to them. Nothing is uploaded.",
+    "deleteLabel": "Delete {{name}}",
+    "deleteTitle": "Delete “{{name}}”?",
+    "deleteBody": "{{size}} on this device, with your reading place. This can’t be undone.",
+    "deleteFailed": "It couldn’t be deleted. Try again.",
+    "delete": "Delete",
+    "cancel": "Cancel"
   },
   "viewer": {
     "close": "Close",

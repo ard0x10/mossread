@@ -38,8 +38,11 @@ function readSettings(): ViewerSettings {
   }
 }
 
-export function useViewerSettings() {
-  const [settings, setSettings] = useState(readSettings)
+export function useViewerSettings(initialMode?: ViewMode) {
+  const [settings, setSettings] = useState(() => {
+    const saved = readSettings()
+    return initialMode ? { ...saved, mode: initialMode } : saved
+  })
 
   useEffect(() => {
     try {

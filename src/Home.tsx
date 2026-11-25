@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getFile, listBooks, type Book } from './library/db'
+import { Shelf } from './library/Shelf'
 import type { OpenedPdf } from './pdf/pdfjs'
 
 // pdf.js is most of the app's weight; the home screen shows without it and
@@ -12,10 +14,11 @@ type State =
   | { kind: 'idle' }
   | { kind: 'opening'; name: string }
   | { kind: 'password'; file: File; wrong: boolean }
-  | { kind: 'error'; message: 'invalid' | 'unknown' }
+  | { kind: 'error'; message: 'invalid' | 'unknown' | 'missing' }
 
 interface HomeProps {
-  onOpen: (pdf: OpenedPdf, name: string) => void
+  /** Resolves once the book is open (and kept in the library, if it is). */
+  onOpen: (pdf: OpenedPdf, file: File) => Promise<void>
 }
 
 function isPdf(file: File): boolean {
@@ -29,6 +32,13 @@ export function Home({ onOpen }: HomeProps) {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [password, setPassword] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [books, setBooks] = useState<Book[]>([])
+
+  const refreshBooks = () => {
+    listBooks().then(setBooks, () => setBooks([]))
+  }
+
+  useEffect(refreshBooks, [])
 
   const attempt = async (file: File, pass?: string) => {
     setState({ kind: 'opening', name: file.name })
@@ -36,7 +46,7 @@ export function Home({ onOpen }: HomeProps) {
       const { openPdf } = await loadPdfModule()
       const pdf = await openPdf(file, pass)
       setPassword('')
-      onOpen(pdf, file.name)
+      await onOpen(pdf, file)
     } catch (error) {
       const reason =
         error instanceof Error && 'reason' in error && typeof error.reason === 'string' ? error.reason : 'unknown'
@@ -46,6 +56,16 @@ export function Home({ onOpen }: HomeProps) {
         setState({ kind: 'error', message: reason === 'invalid' ? 'invalid' : 'unknown' })
       }
     }
+  }
+
+  const openFromShelf = async (book: Book) => {
+    setState({ kind: 'opening', name: book.name })
+    const blob = await getFile(book.id).catch(() => undefined)
+    if (!blob) {
+      setState({ kind: 'error', message: 'missing' })
+      return
+    }
+    void attempt(new File([blob], book.name, { type: 'application/pdf' }))
   }
 
   const choose = (file: File | undefined) => {
@@ -168,7 +188,11 @@ export function Home({ onOpen }: HomeProps) {
           <div className="home-actions">
             {state.kind === 'error' && (
               <p className="home-error" role="alert">
-                {state.message === 'invalid' ? t('home.errorInvalid') : t('home.errorUnknown')}
+                {state.message === 'invalid'
+                  ? t('home.errorInvalid')
+                  : state.message === 'missing'
+                    ? t('home.errorMissing')
+                    : t('home.errorUnknown')}
               </p>
             )}
             <button
@@ -193,6 +217,14 @@ export function Home({ onOpen }: HomeProps) {
               }}
             />
           </div>
+        )}
+        {state.kind !== 'password' && (
+          <Shelf
+            books={books}
+            busy={opening}
+            onOpen={(book) => void openFromShelf(book)}
+            onDeleted={refreshBooks}
+          />
         )}
       </main>
 

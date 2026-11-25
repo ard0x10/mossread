@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { SavedPosition } from '../library/db'
 import type { OpenedPdf } from '../pdf/pdfjs'
 import { Reflow, type Position, type ReflowHandle } from '../reflow/Reflow'
 import { ReflowSettingsSheet } from '../reflow/ReflowSettingsSheet'
@@ -16,8 +17,15 @@ import './viewer.css'
 interface ViewerProps {
   pdf: OpenedPdf
   fileName: string
+  /** Where this book was left last time, if it is in the library. */
+  start?: SavedPosition | null
+  /** Called with the reading position as it changes, for the library. */
+  onPosition?: (position: SavedPosition) => void
   onClose: () => void
 }
+
+// How often the reading position is checked for the library.
+const POSITION_INTERVAL = 2000
 
 type SheetName = 'contents' | 'goto' | 'settings'
 
@@ -30,18 +38,23 @@ const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5]
 
 const clampZoom = (zoom: number) => Math.min(Math.max(zoom, MIN_ZOOM), MAX_ZOOM)
 
-export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
+export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProps) {
   const { doc } = pdf
   const { t } = useTranslation()
-  const [settings, updateSettings] = useViewerSettings()
+  // A book from the library reopens in the view it was left in.
+  const [settings, updateSettings] = useViewerSettings(start?.mode)
   const { flow, night, mode } = settings
   const [reflowSettings, updateReflowSettings] = useReflowSettings()
   const reflowRef = useRef<ReflowHandle>(null)
   // Where the text view opens; set from the page view's position on each switch.
-  const [textStart, setTextStart] = useState<Position>({ page: 1, y: 0 })
-  const [textPage, setTextPage] = useState(1)
+  const [textStart, setTextStart] = useState<Position>(() =>
+    start?.mode === 'text' ? { page: start.page, y: start.y } : { page: 1, y: 0 },
+  )
+  const [textPage, setTextPage] = useState(() => (start?.mode === 'text' ? start.page : 1))
   const [store, setStore] = useState<TextStore | null>(() => (mode === 'text' ? new TextStore(doc) : null))
-  const pendingSpot = useRef<Position | null>(null)
+  const pendingSpot = useRef<Position | null>(start?.mode === 'page' ? { page: start.page, y: start.y } : null)
+  // The saved place is not overwritten until the view has actually reached it.
+  const restored = useRef(!start || start.mode === 'text')
 
   const scrollerRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
@@ -196,7 +209,7 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
       const scroller = scrollerRef.current
       const el = scroller?.querySelector<HTMLElement>(`.page[data-page="${spot.page}"]`)
       if (!scroller || !el || flow !== 'scroll' || spot.y <= 0) return
-      scroller.scrollTop += spot.y * el.offsetHeight - GAP
+      scroller.scrollTop += spot.y * el.offsetHeight
     },
     [jumpTo, flow],
   )
@@ -217,13 +230,58 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
     [mode, pagePosition, doc, updateSettings],
   )
 
-  // Back on the pages, go to where the text view was.
+  // Back on the pages (or reopening a book), go to where the reader was.
   useLayoutEffect(() => {
     if (mode !== 'page' || !fit) return
     const spot = pendingSpot.current
     pendingSpot.current = null
     if (spot) jumpToSpot(spot)
+    restored.current = true
   }, [mode, fit, jumpToSpot])
+
+  // The library hears where the reader is: every few seconds when it has
+  // changed, and when the tab is hidden or closed.
+  const lastReported = useRef('')
+  const reportPosition = useRef(() => {})
+  useEffect(() => {
+    reportPosition.current = () => {
+      if (!onPosition || !restored.current) return
+      let spot: Position | null
+      if (mode === 'text' && store) {
+        const reflow = reflowRef.current
+        spot = reflow && reflow.ready() ? reflow.position() : null
+      } else {
+        spot = pagePosition()
+      }
+      if (!spot) return
+      const position: SavedPosition = { mode: mode === 'text' && store ? 'text' : 'page', page: spot.page, y: spot.y }
+      const key = `${position.mode}:${position.page}:${position.y.toFixed(3)}`
+      if (key === lastReported.current) return
+      lastReported.current = key
+      onPosition(position)
+    }
+  })
+
+  useEffect(() => {
+    if (!onPosition) return
+    const report = () => reportPosition.current()
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') report()
+    }
+    const timer = setInterval(report, POSITION_INTERVAL)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', report)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', report)
+    }
+  }, [onPosition])
+
+  const closeBook = () => {
+    reportPosition.current()
+    onClose()
+  }
 
   // Switching between scrolling and page-by-page keeps the reader on the same page.
   const lastFlow = useRef(flow)
@@ -344,7 +402,7 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
   return (
     <div className={viewerClass} style={viewerStyle}>
       <header ref={topBarRef} className="viewer-bar viewer-topbar">
-        <button type="button" className="button-quiet" onClick={onClose}>
+        <button type="button" className="button-quiet" onClick={closeBook}>
           {t('viewer.close')}
         </button>
         <h1 className="viewer-title">{fileName}</h1>

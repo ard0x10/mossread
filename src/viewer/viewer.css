@@ -250,74 +250,6 @@
   top: 0;
 }
 
-/* Sheets */
-
-.sheet {
-  inline-size: 100%;
-  max-inline-size: 34rem;
-  max-block-size: 85dvh;
-  margin: auto auto 0;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 1rem 1rem 0 0;
-  background: var(--bg);
-  color: var(--text);
-  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.2);
-}
-
-.sheet[open] {
-  animation: sheet-in 0.2s ease-out;
-}
-
-@keyframes sheet-in {
-  from {
-    opacity: 0;
-    transform: translateY(1.5rem);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sheet[open] {
-    animation: none;
-  }
-}
-
-.sheet::backdrop {
-  background: rgb(0 0 0 / 0.4);
-}
-
-.sheet-body {
-  display: flex;
-  flex-direction: column;
-  max-block-size: 85dvh;
-  overflow: auto;
-  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
-}
-
-.sheet-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-block: 0.5rem;
-  background: var(--bg);
-}
-
-.sheet-title {
-  margin: 0;
-  font-size: 1.125rem;
-}
-
-.sheet-note {
-  margin: 0.25rem 0 0;
-  color: var(--muted);
-  font-size: 0.9375rem;
-}
-
 /* Contents */
 
 .contents-list {
@@ -386,12 +318,6 @@
   padding-block-start: 0.25rem;
 }
 
-.setting-name {
-  margin: 0 0 0.5rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-
 .setting-inline {
   display: flex;
   align-items: center;
@@ -401,12 +327,6 @@
 
 .setting-inline .setting-name {
   margin: 0;
-}
-
-.setting-hint {
-  margin: 0.125rem 0 0;
-  color: var(--muted);
-  font-size: 0.875rem;
 }
 
 .segmented {
@@ -429,48 +349,6 @@
   background: var(--bg);
   font-weight: 600;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
-}
-
-.switch {
-  position: relative;
-  flex: none;
-  inline-size: 3.25rem;
-  block-size: 2rem;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: var(--line);
-}
-
-/* Enlarges the touch area to the full tap size without changing the look. */
-.switch::after {
-  content: '';
-  position: absolute;
-  inset: -0.375rem;
-}
-
-.switch-thumb {
-  position: absolute;
-  top: 0.1875rem;
-  inset-inline-start: 0.1875rem;
-  inline-size: 1.625rem;
-  block-size: 1.625rem;
-  border-radius: 50%;
-  background: var(--field);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
-  transition: transform 0.15s ease;
-}
-
-.switch[aria-checked='true'] {
-  background: var(--accent);
-}
-
-.switch[aria-checked='true'] .switch-thumb {
-  transform: translateX(1.25rem);
-}
-
-.switch[aria-checked='true']:dir(rtl) .switch-thumb {
-  transform: translateX(-1.25rem);
 }
 
 .stepper {
