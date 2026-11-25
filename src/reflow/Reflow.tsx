@@ -12,9 +12,20 @@ import {
   type Ref,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { Locator } from '../focus/stream'
 import type { Block } from '../text/layout'
 import type { TextStore } from '../text/store'
-import type { ReflowSettings } from './settings'
+import {
+  caretAt,
+  findSpot,
+  locatorOf,
+  offsetTop,
+  register,
+  renderedBlocks,
+  textOffset,
+  type ElementSpot,
+} from './blocks'
+import { FONT_STACKS, type ReflowSettings } from './settings'
 import './reflow.css'
 
 /** A place in the document: page number and the height on it, as a fraction from the top. */
@@ -28,6 +39,19 @@ export interface ReflowHandle {
   jumpTo: (position: Position) => void
   /** False while still on the way to a place (its page is being read, or the layout is settling). */
   ready: () => boolean
+  /** The first line in view, as an exact text point. */
+  point: () => Locator | null
+  /** The selected text in this view, if any. */
+  selection: () => TextSelection | null
+  /** The scrolling element and the text column, for overlays drawn over the text. */
+  elements: () => { scroller: HTMLDivElement; column: HTMLDivElement } | null
+}
+
+export interface TextSelection {
+  start: Locator
+  /** The point just after the last selected character. */
+  end: Locator
+  text: string
 }
 
 interface ReflowProps {
@@ -38,45 +62,11 @@ interface ReflowProps {
   topInset: () => number
   onPageChange: (page: number) => void
   onShowPage: (position: Position) => void
-  onTap: () => void
+  /** A tap on the text that is not on a button; the height is in screen space. */
+  onTap: (clientY: number) => void
   handle: Ref<ReflowHandle>
 }
 
-const FONT_STACKS: Record<ReflowSettings['font'], string> = {
-  system: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  literata: '"Literata Variable", Georgia, serif',
-  atkinson: '"Atkinson Hyperlegible Next Variable", system-ui, sans-serif',
-}
-
-type CaretDocument = Document & {
-  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
-  caretRangeFromPoint?: (x: number, y: number) => Range | null
-}
-
-function caretAt(x: number, y: number): { node: Node; offset: number } | null {
-  const doc = document as CaretDocument
-  if (doc.caretPositionFromPoint) {
-    const caret = doc.caretPositionFromPoint(x, y)
-    return caret ? { node: caret.offsetNode, offset: caret.offset } : null
-  }
-  if (doc.caretRangeFromPoint) {
-    const range = doc.caretRangeFromPoint(x, y)
-    return range ? { node: range.startContainer, offset: range.startOffset } : null
-  }
-  return null
-}
-
-function firstTextNode(element: Element): Text | null {
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
-  return walker.nextNode() as Text | null
-}
-
-/** The block each element on screen shows, so positions are read from what is drawn. */
-const renderedBlocks = new WeakMap<Element, Block>()
-
-const register = (block: Block) => (element: Element | null) => {
-  if (element) renderedBlocks.set(element, block)
-}
 
 /**
  * A key that follows a block when blocks before it come and go (a page
@@ -86,19 +76,6 @@ function blockKey(block: Block): string {
   if (block.kind === 'figure') return `f:${block.page}:${block.y}`
   const first = block.anchors[0]
   return `${block.kind[0]}:${first.page}:${first.y}:${first.offset}`
-}
-
-/** Screen top of the line holding this character of an element's text. */
-function offsetTop(element: Element, offset: number): number {
-  const text = firstTextNode(element)
-  // Measured on the character even at offset 0: a code block's padding sits above its first line.
-  if (!text || text.length === 0) return element.getBoundingClientRect().top
-  const range = document.createRange()
-  const at = Math.min(offset, text.length - 1)
-  range.setStart(text, at)
-  range.setEnd(text, at + 1)
-  const rects = range.getClientRects()
-  return rects.length > 0 ? rects[rects.length - 1].top : element.getBoundingClientRect().top
 }
 
 export function Reflow({ store, settings, start, topInset, onPageChange, onShowPage, onTap, handle }: ReflowProps) {
@@ -158,6 +135,42 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     return { page: fallbackPage, y: 0 }
   }, [blockAt, readingTop])
 
+  const point = useCallback((): Locator | null => {
+    const column = columnRef.current
+    if (!column) return null
+    const rect = column.getBoundingClientRect()
+    const top = readingTop()
+    for (const dy of [0, 16, 40, 80, 160]) {
+      const hit = blockAt(document.elementFromPoint(rect.left + rect.width / 2, top + dy))
+      if (!hit?.block || !hit.blockEl) continue
+      if (hit.block.kind === 'figure') return locatorOf(hit.blockEl, 0)
+      const box = hit.blockEl.getBoundingClientRect()
+      const caret = caretAt(box.left + 1, Math.max(top + dy, box.top + 1))
+      const offset = caret && hit.blockEl.contains(caret.node) ? textOffset(hit.blockEl, caret.node, caret.offset) : 0
+      return locatorOf(hit.blockEl, offset)
+    }
+    return null
+  }, [blockAt, readingTop])
+
+  const selectionInView = useCallback((): TextSelection | null => {
+    const column = columnRef.current
+    const selection = window.getSelection()
+    if (!column || !selection || selection.isCollapsed || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    if (!column.contains(range.commonAncestorContainer)) return null
+    const edge = (node: Node, offset: number, atEnd: boolean): Locator | null => {
+      const element = (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>('[data-b]')
+      if (element && column.contains(element)) return locatorOf(element, textOffset(element, node, offset))
+      // A boundary between blocks: the nearest block inside the selection.
+      const inside = [...column.querySelectorAll<HTMLElement>('[data-b]')].filter((el) => range.intersectsNode(el))
+      const el = atEnd ? inside.at(-1) : inside[0]
+      return el ? locatorOf(el, atEnd ? (el.textContent?.length ?? 0) : 0) : null
+    }
+    const start = edge(range.startContainer, range.startOffset, false)
+    const end = edge(range.endContainer, range.endOffset, true)
+    return start && end ? { start, end, text: selection.toString() } : null
+  }, [])
+
   const rememberAnchor = useCallback(() => {
     const column = columnRef.current
     if (!column) return
@@ -180,30 +193,8 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     (target: Position): boolean => {
       const scroller = scrollerRef.current
       if (!scroller) return false
-      // The line closest above the target height; in two columns the left one
-      // comes first in reading order and wins a tie.
       // Searched among the blocks on screen, which is what the scroll is measured against.
-      type Spot = { element: HTMLElement; offset: number }
-      let best: Spot | null = null
-      let bestY = -Infinity
-      let fallback: Spot | null = null
-      for (const sectionPage of [target.page - 1, target.page]) {
-        for (const element of scroller.querySelectorAll<HTMLElement>(`[data-page="${sectionPage}"] [data-b]`)) {
-          const block = renderedBlocks.get(element)
-          if (!block) continue
-          const points = block.kind === 'figure' ? [{ offset: 0, page: block.page, y: block.y }] : block.anchors
-          for (const a of points) {
-            if (a.page !== target.page) continue
-            const here: Spot = { element, offset: a.offset }
-            fallback ??= here
-            if (a.y <= target.y + 0.01 && a.y > bestY + 0.004) {
-              best = here
-              bestY = a.y
-            }
-          }
-        }
-      }
-      const spot: Spot | null = best ?? fallback
+      const spot: ElementSpot | null = findSpot(scroller, target)
       const sectionEl = scroller.querySelector<HTMLElement>(`[data-page="${target.page}"]`)
       if (!spot) {
         sectionEl?.scrollIntoView({ block: 'start' })
@@ -267,8 +258,19 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
 
   useImperativeHandle(
     handle,
-    () => ({ position, jumpTo, ready: () => pending.current === null && settling.current === null }),
-    [position, jumpTo],
+    () => ({
+      position,
+      jumpTo,
+      ready: () => pending.current === null && settling.current === null,
+      point,
+      selection: selectionInView,
+      elements: () => {
+        const scroller = scrollerRef.current
+        const column = columnRef.current
+        return scroller && column ? { scroller, column } : null
+      },
+    }),
+    [position, jumpTo, point, selectionInView],
   )
 
   // Opening: go to the starting place as soon as its page has been read.
@@ -387,7 +389,7 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
         const selection = window.getSelection()
         if (selection && !selection.isCollapsed) return
         if ((event.target as Element).closest('button, a')) return
-        onTap()
+        onTap(event.clientY)
       }}
     >
       <div ref={columnRef} className="reflow-column">

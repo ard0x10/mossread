@@ -102,6 +102,8 @@
 }
 
 .reflow-column {
+  /* Holds the line focus window, which scrolls with the text. */
+  position: relative;
   max-inline-size: calc(var(--measure) + 2 * var(--side));
   margin-inline: auto;
   padding-inline: max(var(--side), env(safe-area-inset-left)) max(var(--side), env(safe-area-inset-right));

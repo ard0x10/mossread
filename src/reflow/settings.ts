@@ -29,6 +29,12 @@ const WIDTHS: readonly ColumnWidth[] = ['narrow', 'medium', 'wide']
 const MARGINS: readonly Margin[] = ['small', 'medium', 'large']
 const HEX = /^#[0-9a-f]{6}$/i
 
+export const FONT_STACKS: Record<ReadingFont, string> = {
+  system: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  literata: '"Literata Variable", Georgia, serif',
+  atkinson: '"Atkinson Hyperlegible Next Variable", system-ui, sans-serif',
+}
+
 const STORAGE_KEY = 'mossread.reflow'
 
 function prefersDark(): boolean {
