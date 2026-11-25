@@ -1,0 +1,346 @@
+/* Reading themes. They recolour the whole reader (bars and sheets too), not
+   just the text, so nothing bright flashes at the edges at night. */
+
+.viewer.is-text {
+  --desk: var(--bg);
+}
+
+.viewer.theme-light {
+  --bg: #fbfaf6;
+  --field: #ffffff;
+  --text: #272b25;
+  --muted: #5c6459;
+  --line: #dfdcd2;
+  --accent: #4d6a43;
+  --on-accent: #fbfaf6;
+}
+
+.viewer.theme-sepia {
+  --bg: #f4ecd8;
+  --field: #faf4e6;
+  --text: #4a3b2a;
+  --muted: #7a6650;
+  --line: #e2d6bb;
+  --accent: #7a5a2e;
+  --on-accent: #faf4e6;
+}
+
+.viewer.theme-dark {
+  --bg: #1b1f1a;
+  --field: #232822;
+  --text: #d6dccf;
+  --muted: #98a190;
+  --line: #2e342c;
+  --accent: #93ad86;
+  --on-accent: #161a15;
+}
+
+/* For OLED screens: true black around softened text, never pure white. */
+.viewer.theme-black {
+  --bg: #000000;
+  --field: #111111;
+  --text: #c9c9c4;
+  --muted: #8a8a85;
+  --line: #222222;
+  --accent: #93ad86;
+  --on-accent: #000000;
+}
+
+/* --bg and --text come from the reader's own picks (inline style). */
+.viewer.theme-custom {
+  --field: color-mix(in srgb, var(--bg) 88%, var(--text));
+  --muted: color-mix(in srgb, var(--text) 65%, var(--bg));
+  --line: color-mix(in srgb, var(--text) 16%, var(--bg));
+  --accent: var(--text);
+  --on-accent: var(--bg);
+}
+
+.viewer.is-text,
+.viewer.is-text .sheet {
+  color: var(--text);
+}
+
+/* Scrolling text */
+
+.reflow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  /* The reader keeps the first line in view steady itself (see Reflow.tsx). */
+  overflow-anchor: none;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  padding-block: calc(var(--top-space) + 1rem) calc(var(--bottom-space) + 2rem);
+}
+
+.reflow.margin-small {
+  --side: 0.75rem;
+}
+
+.reflow.margin-medium {
+  --side: 1.25rem;
+}
+
+.reflow.margin-large {
+  --side: 2rem;
+}
+
+.reflow.width-narrow {
+  --measure: 30em;
+}
+
+.reflow.width-medium {
+  --measure: 36em;
+}
+
+.reflow.width-wide {
+  --measure: 44em;
+}
+
+.reflow-column {
+  max-inline-size: calc(var(--measure) + 2 * var(--side));
+  margin-inline: auto;
+  padding-inline: max(var(--side), env(safe-area-inset-left)) max(var(--side), env(safe-area-inset-right));
+  font-family: var(--reading-font);
+  font-size: var(--reading-size);
+  line-height: var(--reading-leading);
+  overflow-wrap: break-word;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* Off-screen pages skip layout and painting until they come near. */
+.reflow-page {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+.reflow-page.is-pending {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-block-size: 70vh;
+  padding-block-start: 2rem;
+  content-visibility: visible;
+}
+
+.reflow-pending {
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: 0.875rem;
+}
+
+.reflow-paragraph {
+  margin: 0 0 0.85em;
+}
+
+.reflow.align-justify .reflow-paragraph {
+  text-align: justify;
+}
+
+.reflow-paragraph.is-list {
+  padding-inline-start: 1em;
+  text-indent: -1em;
+}
+
+.reflow-paragraph.is-small {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.reflow-heading {
+  margin: 1.6em 0 0.6em;
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.reflow-heading.level-1 {
+  font-size: 1.5em;
+}
+
+.reflow-heading.level-2 {
+  font-size: 1.25em;
+}
+
+.reflow-heading.level-3 {
+  font-size: 1.05em;
+}
+
+.reflow-code {
+  margin: 0 0 1em;
+  padding: 0.75em 0.9em;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--field);
+  font-family: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-size: 0.8em;
+  line-height: 1.45;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.reflow-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  inline-size: 100%;
+  min-block-size: var(--tap);
+  margin: 0 0 1em;
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: 0.875rem;
+  text-align: start;
+}
+
+.reflow-card-action {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.reflow-notice {
+  padding-block: 3rem;
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  text-align: center;
+}
+
+/* Mode switch in the top bar */
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 0.65rem;
+  background: var(--line);
+}
+
+.mode-switch-option {
+  min-block-size: 2.25rem;
+  padding-inline: 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  font-size: 0.9375rem;
+}
+
+.mode-switch-option[aria-pressed='true'] {
+  background: var(--bg);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+/* Settings for reading text */
+
+.segmented.is-three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.font-sample {
+  display: block;
+  font-size: 1.125rem;
+  line-height: 1.2;
+}
+
+.font-sample.font-system {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-sample.font-literata {
+  font-family: 'Literata Variable', Georgia, serif;
+}
+
+.font-sample.font-atkinson {
+  font-family: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
+}
+
+.font-name {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.segmented-option.has-sample {
+  padding-block: 0.4rem;
+}
+
+.themes {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.75rem;
+}
+
+.theme-swatch {
+  display: grid;
+  place-items: center;
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+}
+
+.theme-option[aria-pressed='true'] .theme-swatch {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-option[aria-pressed='true'] {
+  font-weight: 600;
+}
+
+.custom-colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-block-start: 0.75rem;
+}
+
+.color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-block-size: var(--tap);
+  padding-inline: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.color-field input {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+span.stepper-value {
+  display: inline-grid;
+  place-items: center;
+}

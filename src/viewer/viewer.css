@@ -501,3 +501,10 @@
   min-inline-size: 4.5rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* While the text view is open the pages stay laid out underneath (so going
+   back lands on the same spot) but are neither shown nor reachable. */
+.viewer-scroller.is-behind {
+  visibility: hidden;
+}
+

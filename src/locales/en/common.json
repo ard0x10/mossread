@@ -26,7 +26,17 @@
     "toolbarLabel": "Reading tools",
     "pageLabel": "Page {{page, number}}",
     "pageIndicator": "{{current, number}} / {{total, number}}",
-    "pageIndicatorLabel": "Page {{current, number}} of {{total, number}}. Go to page"
+    "pageIndicatorLabel": "Page {{current, number}} of {{total, number}}. Go to page",
+    "modeLabel": "View",
+    "modePage": "Page",
+    "modeText": "Text"
+  },
+  "reflow": {
+    "reading": "Reading page {{page, number}}…",
+    "pageWithoutText": "Page {{page, number}} has no text to show here.",
+    "showPage": "Show page",
+    "figure": "Figure or table · page {{page, number}}",
+    "noText": "This PDF has no text to show as reading text. It may be a scanned image; switch to Page to read it."
   },
   "contents": {
     "title": "Contents",
@@ -52,6 +62,38 @@
     "zoomIn": "Zoom in",
     "zoomReset": "Reset zoom",
     "zoomValue": "{{value, number(style: percent; maximumFractionDigits: 0)}}"
+  },
+  "reflowSettings": {
+    "font": "Font",
+    "fontSystem": "System",
+    "size": "Text size",
+    "smaller": "Smaller text",
+    "larger": "Larger text",
+    "sizeValue": "{{value, number}} px",
+    "lineHeight": "Line spacing",
+    "tighter": "Less line spacing",
+    "looser": "More line spacing",
+    "lineHeightValue": "{{value, number}}",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeSepia": "Sepia",
+    "themeDark": "Dark",
+    "themeBlack": "Black",
+    "themeCustom": "Custom",
+    "background": "Background",
+    "textColor": "Text",
+    "width": "Column width",
+    "narrow": "Narrow",
+    "medium": "Medium",
+    "wide": "Wide",
+    "margin": "Margins",
+    "small": "Small",
+    "large": "Large",
+    "align": "Alignment",
+    "alignStart": "Left",
+    "alignJustify": "Justified",
+    "cleanup": "Text cleanup",
+    "cleanupHint": "Hide page numbers and running headers, join words split at line ends"
   },
   "sheet": {
     "close": "Close"

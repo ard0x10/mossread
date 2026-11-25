@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export type PageFlow = 'scroll' | 'paged'
+/** The PDF's own pages, or its text laid out for reading. */
+export type ViewMode = 'page' | 'text'
 
 export interface ViewerSettings {
   flow: PageFlow
   night: boolean
+  mode: ViewMode
 }
 
 const STORAGE_KEY = 'mossread.viewer'
@@ -20,7 +23,7 @@ function prefersDark(): boolean {
 // Night mode starts out matching the system theme; after the first change the
 // reader's own choice wins.
 function readSettings(): ViewerSettings {
-  const defaults: ViewerSettings = { flow: 'scroll', night: prefersDark() }
+  const defaults: ViewerSettings = { flow: 'scroll', night: prefersDark(), mode: 'page' }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return defaults
@@ -28,6 +31,7 @@ function readSettings(): ViewerSettings {
     return {
       flow: saved.flow === 'paged' ? 'paged' : 'scroll',
       night: typeof saved.night === 'boolean' ? saved.night : defaults.night,
+      mode: saved.mode === 'text' ? 'text' : 'page',
     }
   } catch {
     return defaults

@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { OpenedPdf } from '../pdf/pdfjs'
+import { Reflow, type Position, type ReflowHandle } from '../reflow/Reflow'
+import { ReflowSettingsSheet } from '../reflow/ReflowSettingsSheet'
+import { useReflowSettings } from '../reflow/settings'
+import { TextStore } from '../text/store'
 import { ContentsSheet } from './ContentsSheet'
 import { GoToSheet } from './GoToSheet'
 import { PageView, type Size } from './PageView'
@@ -30,7 +34,14 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
   const { doc } = pdf
   const { t } = useTranslation()
   const [settings, updateSettings] = useViewerSettings()
-  const { flow, night } = settings
+  const { flow, night, mode } = settings
+  const [reflowSettings, updateReflowSettings] = useReflowSettings()
+  const reflowRef = useRef<ReflowHandle>(null)
+  // Where the text view opens; set from the page view's position on each switch.
+  const [textStart, setTextStart] = useState<Position>({ page: 1, y: 0 })
+  const [textPage, setTextPage] = useState(1)
+  const [store, setStore] = useState<TextStore | null>(() => (mode === 'text' ? new TextStore(doc) : null))
+  const pendingSpot = useRef<Position | null>(null)
 
   const scrollerRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
@@ -45,7 +56,17 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
   const [current, setCurrent] = useState(1)
   const currentRef = useRef(1)
   const [chromeVisible, setChromeVisible] = useState(true)
+  const chromeVisibleRef = useRef(true)
   const [sheet, setSheet] = useState<SheetName | null>(null)
+
+  useEffect(() => {
+    chromeVisibleRef.current = chromeVisible
+  }, [chromeVisible])
+
+  useEffect(() => {
+    store?.resume()
+    return () => store?.destroy()
+  }, [store])
 
   const total = doc.numPages
   const pages = useMemo(() => Array.from({ length: total }, (_, i) => i + 1), [total])
@@ -149,6 +170,61 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
     setCurrent(page)
   }, [])
 
+  const topInset = useCallback(() => (chromeVisibleRef.current ? (topBarRef.current?.offsetHeight ?? 0) : 0), [])
+
+  /** The first line in view in the page view: page number and height on it. */
+  const pagePosition = useCallback((): Position => {
+    const scroller = scrollerRef.current
+    const page = currentRef.current
+    if (!scroller) return { page, y: 0 }
+    const top = scroller.getBoundingClientRect().top + topInset() + GAP
+    // The page under the top line can be a few before the one in the middle of the screen.
+    for (let n = Math.max(1, page - 3); n <= Math.min(total, page + 1); n++) {
+      const el = scroller.querySelector<HTMLElement>(`.page[data-page="${n}"]`)
+      if (!el) continue
+      const rect = el.getBoundingClientRect()
+      if (rect.bottom > top && rect.right > 0 && rect.left < window.innerWidth) {
+        return { page: n, y: Math.min(Math.max((top - rect.top) / rect.height, 0), 1) }
+      }
+    }
+    return { page, y: 0 }
+  }, [topInset, total])
+
+  const jumpToSpot = useCallback(
+    (spot: Position) => {
+      jumpTo(spot.page)
+      const scroller = scrollerRef.current
+      const el = scroller?.querySelector<HTMLElement>(`.page[data-page="${spot.page}"]`)
+      if (!scroller || !el || flow !== 'scroll' || spot.y <= 0) return
+      scroller.scrollTop += spot.y * el.offsetHeight - GAP
+    },
+    [jumpTo, flow],
+  )
+
+  const switchMode = useCallback(
+    (next: 'page' | 'text', spot?: Position) => {
+      if (next === mode) return
+      if (next === 'text') {
+        const start = spot ?? pagePosition()
+        setTextStart(start)
+        setTextPage(start.page)
+        setStore((existing) => existing ?? new TextStore(doc))
+      } else {
+        pendingSpot.current = spot ?? reflowRef.current?.position() ?? null
+      }
+      updateSettings({ mode: next })
+    },
+    [mode, pagePosition, doc, updateSettings],
+  )
+
+  // Back on the pages, go to where the text view was.
+  useLayoutEffect(() => {
+    if (mode !== 'page' || !fit) return
+    const spot = pendingSpot.current
+    pendingSpot.current = null
+    if (spot) jumpToSpot(spot)
+  }, [mode, fit, jumpToSpot])
+
   // Switching between scrolling and page-by-page keeps the reader on the same page.
   const lastFlow = useRef(flow)
   useLayoutEffect(() => {
@@ -246,20 +322,77 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
       />
     ) : null
 
+  const textMode = mode === 'text' && store !== null
+  const shownPage = textMode ? textPage : current
+  const goTo = (page: number) => {
+    setSheet(null)
+    if (textMode) reflowRef.current?.jumpTo({ page, y: 0 })
+    else jumpTo(page)
+  }
+  const viewerClass = [
+    'viewer',
+    chromeVisible ? '' : 'is-chrome-hidden',
+    textMode ? `is-text theme-${reflowSettings.theme}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const viewerStyle =
+    textMode && reflowSettings.theme === 'custom'
+      ? ({ '--bg': reflowSettings.customBackground, '--text': reflowSettings.customText } as CSSProperties)
+      : undefined
+
   return (
-    <div className={chromeVisible ? 'viewer' : 'viewer is-chrome-hidden'}>
+    <div className={viewerClass} style={viewerStyle}>
       <header ref={topBarRef} className="viewer-bar viewer-topbar">
         <button type="button" className="button-quiet" onClick={onClose}>
           {t('viewer.close')}
         </button>
         <h1 className="viewer-title">{fileName}</h1>
+        <div className="mode-switch" role="group" aria-label={t('viewer.modeLabel')}>
+          <button
+            type="button"
+            className="mode-switch-option"
+            aria-pressed={!textMode}
+            onClick={() => switchMode('page')}
+          >
+            {t('viewer.modePage')}
+          </button>
+          <button
+            type="button"
+            className="mode-switch-option"
+            aria-pressed={textMode}
+            onClick={() => switchMode('text')}
+          >
+            {t('viewer.modeText')}
+          </button>
+        </div>
       </header>
+
+      {textMode && (
+        <Reflow
+          store={store}
+          settings={reflowSettings}
+          start={textStart}
+          topInset={topInset}
+          onPageChange={setTextPage}
+          onShowPage={(spot) => switchMode('page', spot)}
+          onTap={() => setChromeVisible((visible) => !visible)}
+          handle={reflowRef}
+        />
+      )}
 
       <div
         ref={scrollerRef}
-        className={flow === 'scroll' ? 'viewer-scroller is-scroll' : 'viewer-scroller is-paged'}
+        className={[
+          'viewer-scroller',
+          flow === 'scroll' ? 'is-scroll' : 'is-paged',
+          textMode ? 'is-behind' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         tabIndex={0}
         aria-label={t('viewer.documentLabel', { name: fileName })}
+        aria-hidden={textMode || undefined}
       >
         {flow === 'scroll' ? (
           <div ref={columnRef} className="viewer-column">
@@ -281,10 +414,10 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
         <button
           type="button"
           className="viewer-page-indicator"
-          aria-label={t('viewer.pageIndicatorLabel', { current, total })}
+          aria-label={t('viewer.pageIndicatorLabel', { current: shownPage, total })}
           onClick={() => setSheet('goto')}
         >
-          {t('viewer.pageIndicator', { current, total })}
+          {t('viewer.pageIndicator', { current: shownPage, total })}
         </button>
         <button type="button" className="button-quiet" onClick={() => setSheet('settings')}>
           {t('viewer.settings')}
@@ -294,24 +427,19 @@ export function Viewer({ pdf, fileName, onClose }: ViewerProps) {
       <ContentsSheet
         open={sheet === 'contents'}
         doc={doc}
-        currentPage={current}
+        currentPage={shownPage}
         onClose={closeSheet}
-        onPick={(page) => {
-          setSheet(null)
-          jumpTo(page)
-        }}
+        onPick={goTo}
       />
-      <GoToSheet
-        open={sheet === 'goto'}
-        total={total}
+      <GoToSheet open={sheet === 'goto'} total={total} onClose={closeSheet} onGo={goTo} />
+      <ReflowSettingsSheet
+        open={sheet === 'settings' && textMode}
+        settings={reflowSettings}
         onClose={closeSheet}
-        onGo={(page) => {
-          setSheet(null)
-          jumpTo(page)
-        }}
+        onChange={updateReflowSettings}
       />
       <SettingsSheet
-        open={sheet === 'settings'}
+        open={sheet === 'settings' && !textMode}
         settings={settings}
         zoom={zoom}
         canZoomOut={zoom > MIN_ZOOM + 0.001}
