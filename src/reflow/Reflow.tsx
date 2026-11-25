@@ -26,6 +26,8 @@ export interface Position {
 export interface ReflowHandle {
   position: () => Position
   jumpTo: (position: Position) => void
+  /** False while still on the way to a place (its page is being read, or the layout is settling). */
+  ready: () => boolean
 }
 
 interface ReflowProps {
@@ -69,10 +71,28 @@ function firstTextNode(element: Element): Text | null {
   return walker.nextNode() as Text | null
 }
 
+/** The block each element on screen shows, so positions are read from what is drawn. */
+const renderedBlocks = new WeakMap<Element, Block>()
+
+const register = (block: Block) => (element: Element | null) => {
+  if (element) renderedBlocks.set(element, block)
+}
+
+/**
+ * A key that follows a block when blocks before it come and go (a page
+ * break mended, a paragraph joined), so React keeps the same element for it.
+ */
+function blockKey(block: Block): string {
+  if (block.kind === 'figure') return `f:${block.page}:${block.y}`
+  const first = block.anchors[0]
+  return `${block.kind[0]}:${first.page}:${first.y}:${first.offset}`
+}
+
 /** Screen top of the line holding this character of an element's text. */
 function offsetTop(element: Element, offset: number): number {
   const text = firstTextNode(element)
-  if (!text || offset <= 0 || text.length === 0) return element.getBoundingClientRect().top
+  // Measured on the character even at offset 0: a code block's padding sits above its first line.
+  if (!text || text.length === 0) return element.getBoundingClientRect().top
   const range = document.createRange()
   const at = Math.min(offset, text.length - 1)
   range.setStart(text, at)
@@ -86,7 +106,11 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
   const scrollerRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
   const pending = useRef<Position | null>(start)
-  const anchor = useRef<{ element: Element; offset: number; top: number } | null>(null)
+  // The scroll position this view last set itself. A scroll event that lands
+  // there was ours (a jump or a correction), not the reader's, and must not
+  // move the anchor: text above may have shifted again in the meantime.
+  const ownScroll = useRef<number | null>(null)
+  const anchor = useRef<{ element: Element; offset: number; top: number; spot: Position } | null>(null)
   const lastPage = useRef(start.page)
   const { cleanup } = settings
   const noText = useSyncExternalStore(store.subscribe, store.noTextLayer)
@@ -102,10 +126,10 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
       const sectionEl = element?.closest<HTMLElement>('[data-page]')
       if (!sectionEl) return null
       const page = Number(sectionEl.dataset.page)
-      const block = blockEl ? store.section(page, cleanup)?.blocks[Number(blockEl.dataset.b)] : undefined
+      const block = blockEl ? renderedBlocks.get(blockEl) : undefined
       return { page, blockEl, block, sectionEl }
     },
-    [store, cleanup],
+    [],
   )
 
   const position = useCallback((): Position => {
@@ -113,11 +137,16 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     if (!column) return { page: lastPage.current, y: 0 }
     const rect = column.getBoundingClientRect()
     const top = readingTop()
+    let fallbackPage = lastPage.current
     for (const dy of [0, 16, 40, 80, 160]) {
       const hit = blockAt(document.elementFromPoint(rect.left + rect.width / 2, top + dy))
       if (!hit) continue
       const { block, blockEl, page } = hit
-      if (!block || !blockEl) return { page, y: 0 }
+      // Between two blocks (a margin) or on a page still being read: look a little lower.
+      if (!block || !blockEl) {
+        fallbackPage = page
+        continue
+      }
       if (block.kind === 'figure') return { page: block.page, y: block.y }
       const box = blockEl.getBoundingClientRect()
       const caret = caretAt(box.left + 1, Math.max(top + dy, box.top + 1))
@@ -126,7 +155,7 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
       for (const a of block.anchors) if (a.offset <= offset) found = a
       return { page: found.page, y: found.y }
     }
-    return { page: lastPage.current, y: 0 }
+    return { page: fallbackPage, y: 0 }
   }, [blockAt, readingTop])
 
   const rememberAnchor = useCallback(() => {
@@ -143,8 +172,8 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     const box = element.getBoundingClientRect()
     const caret = caretAt(box.left + 1, Math.max(top, box.top + 1))
     const offset = caret && element.contains(caret.node) ? caret.offset : 0
-    anchor.current = { element, offset, top: offsetTop(element, offset) }
-  }, [readingTop])
+    anchor.current = { element, offset, top: offsetTop(element, offset), spot: position() }
+  }, [readingTop, position])
 
   /** Scrolls so the line that came from this spot of the page is the first one in view. Returns false while that page is still being read. */
   const tryJump = useCallback(
@@ -153,17 +182,19 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
       if (!scroller) return false
       // The line closest above the target height; in two columns the left one
       // comes first in reading order and wins a tie.
-      type Spot = { page: number; index: number; offset: number }
+      // Searched among the blocks on screen, which is what the scroll is measured against.
+      type Spot = { element: HTMLElement; offset: number }
       let best: Spot | null = null
       let bestY = -Infinity
       let fallback: Spot | null = null
       for (const sectionPage of [target.page - 1, target.page]) {
-        const blocks: Block[] = store.section(sectionPage, cleanup)?.blocks ?? []
-        for (const [index, block] of blocks.entries()) {
+        for (const element of scroller.querySelectorAll<HTMLElement>(`[data-page="${sectionPage}"] [data-b]`)) {
+          const block = renderedBlocks.get(element)
+          if (!block) continue
           const points = block.kind === 'figure' ? [{ offset: 0, page: block.page, y: block.y }] : block.anchors
           for (const a of points) {
             if (a.page !== target.page) continue
-            const here: Spot = { page: sectionPage, index, offset: a.offset }
+            const here: Spot = { element, offset: a.offset }
             fallback ??= here
             if (a.y <= target.y + 0.01 && a.y > bestY + 0.004) {
               best = here
@@ -177,16 +208,15 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
       if (!spot) {
         sectionEl?.scrollIntoView({ block: 'start' })
         scroller.scrollTop -= topInset()
-        const section = store.section(target.page, cleanup)
+        ownScroll.current = scroller.scrollTop
         // A page with nothing on it (or whose text all joined the previous page) is still a place to stop.
-        return section !== undefined
+        return sectionEl !== null && !sectionEl.classList.contains('is-pending')
       }
-      const blockEl = scroller.querySelector<HTMLElement>(`[data-page="${spot.page}"] [data-b="${spot.index}"]`)
-      if (!blockEl) return false
-      scroller.scrollTop += offsetTop(blockEl, spot.offset) - readingTop()
+      scroller.scrollTop += offsetTop(spot.element, spot.offset) - readingTop()
+      ownScroll.current = scroller.scrollTop
       return true
     },
-    [store, cleanup, topInset, readingTop],
+    [topInset, readingTop],
   )
 
   // Right after a jump the pages around it are still settling: the browser
@@ -235,7 +265,11 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     [store, land, onPageChange],
   )
 
-  useImperativeHandle(handle, () => ({ position, jumpTo }), [position, jumpTo])
+  useImperativeHandle(
+    handle,
+    () => ({ position, jumpTo, ready: () => pending.current === null && settling.current === null }),
+    [position, jumpTo],
+  )
 
   // Opening: go to the starting place as soon as its page has been read.
   useLayoutEffect(() => {
@@ -260,11 +294,23 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     const scroller = scrollerRef.current
     if (!scroller) return
     const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
-    for (const name of events) scroller.addEventListener(name, stopSettling, { passive: true })
+    // A jump still waiting for its page is dropped too: the reader has chosen to be elsewhere.
+    const onInput = () => {
+      stopSettling()
+      pending.current = null
+    }
+    for (const name of events) scroller.addEventListener(name, onInput, { passive: true })
     return () => {
-      for (const name of events) scroller.removeEventListener(name, stopSettling)
+      for (const name of events) scroller.removeEventListener(name, onInput)
     }
   }, [stopSettling])
+
+  const tryJumpRef = useRef(tryJump)
+  const rememberAnchorRef = useRef(rememberAnchor)
+  useEffect(() => {
+    tryJumpRef.current = tryJump
+    rememberAnchorRef.current = rememberAnchor
+  })
 
   // Text above the reader can change height (a page finished reading, a new
   // text size). The first line in view stays where it was.
@@ -274,9 +320,18 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
     if (!column || !scroller) return
     const observer = new ResizeObserver(() => {
       const saved = anchor.current
-      if (pending.current || settling.current || !saved || !saved.element.isConnected) return
+      if (pending.current || settling.current || !saved) return
+      // The block itself can go: its page break was mended and it joined the
+      // paragraph before. Then the place is found again from the page.
+      if (!saved.element.isConnected) {
+        if (tryJumpRef.current(saved.spot)) rememberAnchorRef.current()
+        return
+      }
       const delta = offsetTop(saved.element, saved.offset) - saved.top
-      if (Math.abs(delta) > 0.5) scroller.scrollTop += delta
+      if (Math.abs(delta) > 0.5) {
+        scroller.scrollTop += delta
+        ownScroll.current = scroller.scrollTop
+      }
     })
     observer.observe(column)
     return () => observer.disconnect()
@@ -290,7 +345,11 @@ export function Reflow({ store, settings, start, topInset, onPageChange, onShowP
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         if (pending.current) return
-        rememberAnchor()
+        const own = ownScroll.current
+        if (own === null || Math.abs(scroller.scrollTop - own) > 1) {
+          ownScroll.current = null
+          rememberAnchor()
+        }
         const { page } = position()
         store.setFocus(page)
         if (page !== lastPage.current) {
@@ -383,24 +442,25 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
           case 'heading': {
             const Tag = block.level === 1 ? 'h2' : block.level === 2 ? 'h3' : 'h4'
             return (
-              <Tag key={index} className={`reflow-heading level-${block.level}`} data-b={index}>
+              <Tag key={blockKey(block)} className={`reflow-heading level-${block.level}`} data-b={index} ref={register(block)}>
                 {block.text}
               </Tag>
             )
           }
           case 'code':
             return (
-              <pre key={index} className="reflow-code" data-b={index}>
+              <pre key={blockKey(block)} className="reflow-code" data-b={index} ref={register(block)}>
                 <code>{block.text}</code>
               </pre>
             )
           case 'figure':
             return (
               <button
-                key={index}
+                key={blockKey(block)}
                 type="button"
                 className="reflow-card"
                 data-b={index}
+                ref={register(block)}
                 onClick={() => onShowPage({ page: block.page, y: block.y })}
               >
                 <span>{t('reflow.figure', { page: block.page })}</span>
@@ -410,7 +470,7 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
           default:
             return (
               <p
-                key={index}
+                key={blockKey(block)}
                 className={[
                   'reflow-paragraph',
                   block.list ? 'is-list' : '',
@@ -419,6 +479,7 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
                   .filter(Boolean)
                   .join(' ')}
                 data-b={index}
+                ref={register(block)}
               >
                 {block.text}
               </p>
