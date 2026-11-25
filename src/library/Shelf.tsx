@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sheet } from '../viewer/Sheet'
+import { promptInstall, readHintDismissed, useInstallWay, writeHintDismissed } from '../pwa/pwa'
 import { deleteBook, readRemember, writeRemember, type Book } from './db'
 
 interface ShelfProps {
@@ -31,6 +32,31 @@ function useFileSize() {
       }).format(value)
     }
   }, [i18n.language])
+}
+
+/** One line under the shelf, until it is used or closed. */
+function InstallHint() {
+  const { t } = useTranslation()
+  const way = useInstallWay()
+  const [dismissed, setDismissed] = useState(readHintDismissed)
+  if (!way || dismissed) return null
+  const close = () => {
+    writeHintDismissed()
+    setDismissed(true)
+  }
+  return (
+    <div className="install-hint">
+      <p className="install-hint-text">{way === 'apple' ? t('install.apple') : t('install.prompt')}</p>
+      {way === 'prompt' && (
+        <button type="button" className="button-quiet" onClick={() => void promptInstall().then(close)}>
+          {t('install.install')}
+        </button>
+      )}
+      <button type="button" className="install-hint-close" aria-label={t('install.close')} onClick={close}>
+        {'×'}
+      </button>
+    </div>
+  )
 }
 
 function Cover({ book }: { book: Book }) {
@@ -91,6 +117,7 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
             ))}
           </ul>
           <p className="shelf-usage">{t('library.usage', { count: books.length, size: fileSize(total) })}</p>
+          <InstallHint />
         </>
       )}
 

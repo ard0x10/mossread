@@ -34,6 +34,12 @@
     "delete": "Delete",
     "cancel": "Cancel"
   },
+  "install": {
+    "prompt": "Install Mossread to read offline.",
+    "apple": "To read offline, tap Share, then Add to Home Screen. Installed, your books stay even if you don’t open it for a while.",
+    "install": "Install",
+    "close": "Don’t show again"
+  },
   "viewer": {
     "close": "Close",
     "contents": "Contents",

@@ -563,6 +563,32 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+.install-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-block-start: 0.75rem;
+}
+
+.install-hint-text {
+  flex: 1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.install-hint-close {
+  flex: none;
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.25rem;
+}
+
 .shelf-remember {
   display: flex;
   align-items: center;
