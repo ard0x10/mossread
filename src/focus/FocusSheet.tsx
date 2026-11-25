@@ -56,7 +56,8 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
 
   const clampPage = (value: string) => Math.min(Math.max(Number.parseInt(value, 10) || 1, 1), total)
   const isPages = (a: number, b: number) => scope.kind === 'pages' && scope.from === a && scope.to === b && !scope.title
-  const showSpeed = kind === 'focus' || settings.lineAdvance === 'auto'
+  const guided = kind === 'line' && settings.lineGuide === 'words'
+  const showSpeed = kind === 'focus' || guided || settings.lineAdvance === 'auto'
 
   return (
     <Sheet open={open} title={t('focus.optionsTitle')} onClose={onClose}>
@@ -164,7 +165,29 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
           )}
         </section>
 
-        {kind === 'focus' && (
+        {kind === 'line' && (
+          <section className="setting" aria-labelledby="focus-guide">
+            <h3 id="focus-guide" className="setting-name">
+              {t('focus.guide')}
+            </h3>
+            <div className="segmented" role="group" aria-labelledby="focus-guide">
+              {(['line', 'words'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="segmented-option"
+                  aria-pressed={settings.lineGuide === value}
+                  onClick={() => onChange({ lineGuide: value })}
+                >
+                  {value === 'line' ? t('focus.guideLine') : t('focus.guideWords')}
+                </button>
+              ))}
+            </div>
+            <p className="setting-hint">{t('focus.guideHint')}</p>
+          </section>
+        )}
+
+        {(kind === 'focus' || guided) && (
           <section className="setting" aria-labelledby="focus-size">
             <h3 id="focus-size" className="setting-name">
               {t('focus.size')}
@@ -227,24 +250,26 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
                 ))}
               </div>
             </section>
-            <section className="setting" aria-labelledby="focus-advance">
-              <h3 id="focus-advance" className="setting-name">
-                {t('focus.advance')}
-              </h3>
-              <div className="segmented" role="group" aria-labelledby="focus-advance">
-                {(['tap', 'auto'] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className="segmented-option"
-                    aria-pressed={settings.lineAdvance === value}
-                    onClick={() => onChange({ lineAdvance: value })}
-                  >
-                    {value === 'tap' ? t('focus.advanceTap') : t('focus.advanceAuto')}
-                  </button>
-                ))}
-              </div>
-            </section>
+            {!guided && (
+              <section className="setting" aria-labelledby="focus-advance">
+                <h3 id="focus-advance" className="setting-name">
+                  {t('focus.advance')}
+                </h3>
+                <div className="segmented" role="group" aria-labelledby="focus-advance">
+                  {(['tap', 'auto'] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="segmented-option"
+                      aria-pressed={settings.lineAdvance === value}
+                      onClick={() => onChange({ lineAdvance: value })}
+                    >
+                      {value === 'tap' ? t('focus.advanceTap') : t('focus.advanceAuto')}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
 

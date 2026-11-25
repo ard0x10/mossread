@@ -266,8 +266,20 @@
   background: color-mix(in srgb, var(--bg) 55%, transparent);
 }
 
+/* The guide: the words being read, lit inside the line. */
+.line-guide {
+  position: absolute;
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  transition:
+    top 0.12s ease,
+    left 0.12s ease,
+    width 0.12s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .line-window,
+  .line-guide,
   .focus-topbar,
   .focus-left,
   .focus-controls {

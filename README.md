@@ -26,6 +26,7 @@ your files are never uploaded, and there is no account and no tracking.
   faded on either side.
 - **Line focus.** One line is lit and the rest of the page is dimmed. Move
   line by line yourself or let it move on at your pace. One line or three.
+  Or let a highlight move along the line word by word, at the speed you set.
 - **Read with.** Select a passage in either view and read just that part in
   Focus or Line focus. Both can also start from where you are, or cover a
   page, a range of pages or a chapter.

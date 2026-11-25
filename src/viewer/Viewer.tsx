@@ -729,7 +729,7 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
           <button type="button" className="button-quiet" aria-label={t('focus.previousLineLabel')} onClick={() => lineRef.current?.step(-1)}>
             {t('focus.previousLine')}
           </button>
-          {focusSettings.lineAdvance === 'auto' ? (
+          {focusSettings.lineAdvance === 'auto' || focusSettings.lineGuide === 'words' ? (
             <button type="button" className="button-quiet" onClick={() => setLinePlaying((value) => !value)}>
               {linePlaying ? t('focus.pause') : t('focus.play')}
             </button>

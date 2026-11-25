@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export type LineAdvance = 'tap' | 'auto'
+/** Line focus lights the line; with 'words', a highlight also moves along it at the reading speed. */
+export type LineGuide = 'line' | 'words'
 export type Neighbours = 0 | 1 | 2
 
 export interface FocusSettings {
@@ -11,6 +13,7 @@ export interface FocusSettings {
   /** Lines left lit in line focus: the one being read, or it and its neighbours. */
   lines: 1 | 3
   lineAdvance: LineAdvance
+  lineGuide: LineGuide
   /** Groups shown faded on each side of the one being read in focus mode. */
   neighbours: Neighbours
 }
@@ -23,7 +26,7 @@ export const NEIGHBOURS = [0, 1, 2] as const
 
 const STORAGE_KEY = 'mossread.focus'
 
-const DEFAULTS: FocusSettings = { wpm: 250, size: 1, lines: 1, lineAdvance: 'tap', neighbours: 0 }
+const DEFAULTS: FocusSettings = { wpm: 250, size: 1, lines: 1, lineAdvance: 'tap', lineGuide: 'line', neighbours: 0 }
 
 function readSettings(): FocusSettings {
   try {
@@ -36,6 +39,7 @@ function readSettings(): FocusSettings {
       size: SIZES.includes(saved.size as 1) ? (saved.size as number) : DEFAULTS.size,
       lines: saved.lines === 3 ? 3 : 1,
       lineAdvance: saved.lineAdvance === 'auto' ? 'auto' : 'tap',
+      lineGuide: saved.lineGuide === 'words' ? 'words' : 'line',
       neighbours: saved.neighbours === 1 || saved.neighbours === 2 ? saved.neighbours : 0,
     }
   } catch {

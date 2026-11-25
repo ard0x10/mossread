@@ -7,12 +7,14 @@ import {
   lineBoxes,
   lineIndexOf,
   locatorOf,
+  renderedBlocks,
   type ElementSpot,
   type LineBox,
 } from '../reflow/blocks'
 import type { FocusSettings } from './settings'
 import type { Locator } from './stream'
 import { useWakeLock } from './useWakeLock'
+import { CARD_MS, chunkDuration, chunkEnd, rampFactor, tokenizeSection, type Token } from './words'
 import './focus.css'
 
 export interface LineFocusHandle {
@@ -40,6 +42,8 @@ interface Mask {
   top: number
   height: number
   dim: Array<{ top: number; height: number }>
+  /** The words being read, when the highlight moves along the line. */
+  guide: { top: number; left: number; width: number; height: number } | null
 }
 
 const PAD = 4
@@ -90,6 +94,70 @@ function wordsOnLine(spot: ElementSpot): { words: number; ends: boolean } {
   return { words: slice.split(/\s+/).filter(Boolean).length, ends: /[.!?…:]\s*$/.test(slice) }
 }
 
+// Words of a block, cut and timed the way focus mode does it, kept while the text stays the same.
+const blockTokens = new WeakMap<Element, { text: string; tokens: Token[] }>()
+
+function tokensOf(element: HTMLElement): { text: Text; tokens: Token[] } | null {
+  const block = renderedBlocks.get(element)
+  const node = firstTextNode(element)
+  if (!block || (block.kind !== 'paragraph' && block.kind !== 'heading') || !node) return null
+  const cached = blockTokens.get(element)
+  if (cached && cached.text === node.data) return { text: node, tokens: cached.tokens }
+  const tokens: Token[] = []
+  tokenizeSection(
+    { page: 0, blocks: [{ kind: block.kind, text: node.data, anchors: [{ offset: 0, page: 0, y: 0 }] }] },
+    tokens,
+  )
+  blockTokens.set(element, { text: node.data, tokens })
+  return { text: node, tokens }
+}
+
+interface Group {
+  text: Text
+  tokens: Token[]
+  /** Tokens [from, to) are lit; the line's words end at `lineEnd`. */
+  from: number
+  to: number
+  lineEnd: number
+}
+
+/**
+ * The words lit on the line at this spot: the group starting at the given
+ * character offset, or the line's first one. A group never runs onto the
+ * next line. Null for a line with no words to read (code, a figure card).
+ */
+function groupOnLine(spot: ElementSpot, start: number | null, size: number): Group | null {
+  const found = tokensOf(spot.element)
+  if (!found) return null
+  const { tokens } = found
+  const lines = lineBoxes(spot.element)
+  const index = lineIndexOf(lines, spot.offset)
+  const lineFrom = lines[index].offset
+  const lineTo = lines[index + 1]?.offset ?? Infinity
+  let first = 0
+  while (first < tokens.length && tokens[first].at.offset < lineFrom) first++
+  let lineEnd = first
+  while (lineEnd < tokens.length && tokens[lineEnd].at.offset < lineTo) lineEnd++
+  if (first === lineEnd) return null
+  let from = first
+  if (start !== null) while (from + 1 < lineEnd && tokens[from].at.offset < start) from++
+  return { ...found, from, to: Math.min(chunkEnd(tokens, from, size), lineEnd), lineEnd }
+}
+
+function groupBox(group: Group): DOMRect | null {
+  const last = group.tokens[group.to - 1]
+  const range = document.createRange()
+  range.setStart(group.text, group.tokens[group.from].at.offset)
+  range.setEnd(group.text, last.at.offset + (last.kind === 'word' ? last.text.length : 0))
+  const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0)
+  if (rects.length === 0) return null
+  const left = Math.min(...rects.map((r) => r.left))
+  const top = Math.min(...rects.map((r) => r.top))
+  const right = Math.max(...rects.map((r) => r.right))
+  const bottom = Math.max(...rects.map((r) => r.bottom))
+  return new DOMRect(left, top, right - left, bottom - top)
+}
+
 /**
  * Darkens the text view except the line being read. The lit window lives in
  * the text column, so it scrolls with the text; the dark around it is its shadow.
@@ -110,7 +178,10 @@ export function LineFocus({
   const current = useRef<ElementSpot | null>(null)
   // The current line as a place in the document, to find it again if its block is redrawn.
   const place = useRef<Locator>(start)
-  const auto = settings.lineAdvance === 'auto'
+  const guided = settings.lineGuide === 'words'
+  const auto = guided || settings.lineAdvance === 'auto'
+  // With the guide on: character offset where the lit words start, or null for the line's first ones.
+  const groupStart = useRef<number | null>(null)
 
   useWakeLock(true)
 
@@ -123,7 +194,8 @@ export function LineFocus({
       if (!again) return
       current.current = again
     }
-    const origin = els.column.getBoundingClientRect().top
+    const columnBox = els.column.getBoundingClientRect()
+    const origin = columnBox.top
     const here = boxOf(current.current!)
     let top = here.top
     let bottom = here.bottom
@@ -141,8 +213,16 @@ export function LineFocus({
         dim.push({ top: box.top - origin - PAD, height: box.bottom - box.top + 2 * PAD })
       }
     }
-    setMask({ top: top - origin - PAD, height: bottom - top + 2 * PAD, dim })
-  }, [elements, settings.lines])
+    let guide: Mask['guide'] = null
+    if (guided) {
+      const group = groupOnLine(current.current!, groupStart.current, settings.size)
+      const box = group && groupBox(group)
+      if (box) {
+        guide = { top: box.top - origin - 1, left: box.left - columnBox.left - 3, width: box.width + 6, height: box.height + 2 }
+      }
+    }
+    setMask({ top: top - origin - PAD, height: bottom - top + 2 * PAD, dim, guide })
+  }, [elements, settings.lines, settings.size, guided])
 
   /** Scrolls so the line sits in the upper part of the view when it has gone near an edge. */
   const keepInView = useCallback((instant: boolean) => {
@@ -166,6 +246,7 @@ export function LineFocus({
   const moveTo = useCallback(
     (spot: ElementSpot, instant = false) => {
       current.current = spot
+      groupStart.current = null
       const located = locatorOf(spot.element, spot.offset)
       if (located) place.current = located
       measure()
@@ -237,7 +318,7 @@ export function LineFocus({
   // Running by itself: each line stays for as long as its words take at the chosen speed.
   const [tick, setTick] = useState(0)
   useEffect(() => {
-    if (!auto || !playing) return
+    if (!auto || guided || !playing) return
     const spot = current.current
     if (!spot) return
     const { words, ends } = wordsOnLine(spot)
@@ -248,7 +329,32 @@ export function LineFocus({
       setTick((n) => n + 1)
     }, ms)
     return () => clearTimeout(timer)
-  }, [auto, playing, settings.wpm, step, tick, mask])
+  }, [auto, guided, playing, settings.wpm, step, tick, mask])
+
+  // The guide: each group of words stays lit as long as focus mode would show it,
+  // then the next one on the line, then the next line.
+  const shown = useRef(0)
+  useEffect(() => {
+    if (playing) shown.current = 0
+  }, [playing])
+  const [guideTick, setGuideTick] = useState(0)
+  useEffect(() => {
+    if (!guided) return
+    measure()
+    const spot = current.current
+    if (!playing || !spot) return
+    const group = groupOnLine(spot, groupStart.current, settings.size)
+    const ms = group
+      ? chunkDuration(group.tokens, group.from, group.to, settings.wpm) * rampFactor(shown.current)
+      : CARD_MS
+    const timer = setTimeout(() => {
+      shown.current++
+      if (group && group.to < group.lineEnd) groupStart.current = group.tokens[group.to].at.offset
+      else step(1)
+      setGuideTick((n) => n + 1)
+    }, ms)
+    return () => clearTimeout(timer)
+  }, [guided, playing, settings.wpm, settings.size, step, measure, guideTick])
 
   // New text size, a page finishing below or above: the line moves, the window follows.
   useLayoutEffect(() => {
@@ -266,6 +372,12 @@ export function LineFocus({
       {mask.dim.map((row, k) => (
         <div key={k} className="line-dim" style={{ top: row.top, height: row.height }} />
       ))}
+      {mask.guide && (
+        <div
+          className="line-guide"
+          style={{ top: mask.guide.top, left: mask.guide.left, width: mask.guide.width, height: mask.guide.height }}
+        />
+      )}
     </div>,
     column,
   )
