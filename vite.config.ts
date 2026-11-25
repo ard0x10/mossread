@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import { createHash } from 'node:crypto'
 import { createReadStream, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,6 +54,41 @@ function pdfjsAssets(): Plugin {
   }
 }
 
+// Everything the app can ask for is stored on the device the first time it is
+// opened, so it works offline, PDFs with unusual fonts included.
+function serviceWorker(): Plugin {
+  return {
+    name: 'mossread-service-worker',
+    apply: 'build',
+    enforce: 'post',
+
+    generateBundle(_options, bundle) {
+      const files = Object.keys(bundle)
+        .filter((name) => !name.endsWith('.map'))
+        .map((name) => '/' + name.split(sep).join('/'))
+        .concat('/manifest.webmanifest')
+        .sort()
+      if (!files.includes('/index.html') || !files.some((name) => name.startsWith('/pdfjs/'))) {
+        this.error(`service worker file list is missing the page or the pdf.js files (${files.length} files)`)
+      }
+      const template = readFileSync(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url)), 'utf8')
+      // The page, the pdf.js files, the manifest and this worker have no hash in
+      // their names, so the version is taken from what every file contains.
+      const hash = createHash('sha256').update(template)
+      for (const name of Object.keys(bundle).sort()) {
+        const item = bundle[name]
+        hash.update(name).update(item.type === 'chunk' ? item.code : item.source)
+      }
+      hash.update(readFileSync(fileURLToPath(new URL('./public/manifest.webmanifest', import.meta.url))))
+      const version = hash.digest('hex').slice(0, 12)
+      const source = template
+        .replace('__VERSION__', JSON.stringify(version))
+        .replace('__FILES__', JSON.stringify(files))
+      this.emitFile({ type: 'asset', fileName: 'sw.js', source })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), pdfjsAssets()],
+  plugins: [react(), pdfjsAssets(), serviceWorker()],
 })

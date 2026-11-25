@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "Mossread",
+  "short_name": "Mossread",
+  "description": "A calm, ad-free reader for your own PDFs. Files stay on your device.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f1ea",
+  "theme_color": "#f3f1ea",
+  "icons": [],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [{ "name": "pdf", "accept": ["application/pdf", ".pdf"] }]
+    }
+  }
+}

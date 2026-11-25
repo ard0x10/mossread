@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { getFile, listBooks, type Book } from './library/db'
 import { Shelf } from './library/Shelf'
 import type { OpenedPdf } from './pdf/pdfjs'
+import { takeSharedFile } from './pwa/pwa'
 
 // pdf.js is most of the app's weight; the home screen shows without it and
 // fetches it in the background, so it is usually ready by the time a file is picked.
@@ -93,6 +94,13 @@ export function Home({ onOpen }: HomeProps) {
   useEffect(() => {
     chooseRef.current = choose
   })
+
+  // Android: a PDF shared from another app opens straight away.
+  useEffect(() => {
+    void takeSharedFile().then((file) => {
+      if (file) chooseRef.current(file)
+    })
+  }, [])
   useEffect(() => {
     let depth = 0
     const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
