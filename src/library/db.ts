@@ -125,7 +125,24 @@ export async function fingerprint(file: Blob): Promise<string> {
   joined.set(size, 0)
   joined.set(new Uint8Array(head), size.byteLength)
   joined.set(new Uint8Array(tail), size.byteLength + head.byteLength)
-  return hex(await crypto.subtle.digest('SHA-256', joined))
+  // crypto.subtle exists only on https (and localhost). On a plain http
+  // address, such as a phone reaching a dev server, a simpler hash stands in;
+  // that is a different origin with its own library, so the ids never meet.
+  if (crypto.subtle) return hex(await crypto.subtle.digest('SHA-256', joined))
+  return `h:${quickHash(joined, 1)}${quickHash(joined, 2)}`
+}
+
+/** 53-bit string hash (cyrb53), run with two seeds for a 106-bit id. Not cryptographic. */
+function quickHash(bytes: Uint8Array, seed: number): string {
+  let h1 = 0xdeadbeef ^ seed
+  let h2 = 0x41c6ce57 ^ seed
+  for (const byte of bytes) {
+    h1 = Math.imul(h1 ^ byte, 2654435761)
+    h2 = Math.imul(h2 ^ byte, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, '0')
 }
 
 /** Asks the browser not to clear the library when space runs low (and, on iOS, after a week away). */
