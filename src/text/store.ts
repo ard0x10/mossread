@@ -153,6 +153,17 @@ export class TextStore {
     return value
   }
 
+  /**
+   * The section once it can no longer change: every page its page-break
+   * mending looks at has been laid out. Undefined until then.
+   */
+  settledSection(page: number, cleanup: boolean): Section | undefined {
+    for (const n of [page - 2, page - 1, page + 1]) {
+      if (n >= 1 && n <= this.total && !this.layout(n, cleanup)) return undefined
+    }
+    return this.section(page, cleanup)
+  }
+
   private nextPage(): number | null {
     // The reader's page and its layout window first, then outwards.
     for (let distance = 0; distance < this.total; distance++) {
