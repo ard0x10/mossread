@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sheet } from '../viewer/Sheet'
 import { promptInstall, readHintDismissed, useInstallWay, writeHintDismissed } from '../pwa/pwa'
+import { useFileSize } from '../lib/useFileSize'
 import { deleteBook, readRemember, writeRemember, type Book } from './db'
 
 interface ShelfProps {
@@ -13,26 +14,6 @@ interface ShelfProps {
 }
 
 /** Sizes in the reader's language: "820 KB", "19 MB", "1.2 GB". */
-function useFileSize() {
-  const { i18n } = useTranslation()
-  return useMemo(() => {
-    const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte'] as const
-    return (bytes: number) => {
-      let value = bytes
-      let unit = 0
-      while (value >= 1000 && unit < units.length - 1) {
-        value /= 1000
-        unit++
-      }
-      return new Intl.NumberFormat(i18n.language, {
-        style: 'unit',
-        unit: units[unit],
-        unitDisplay: 'short',
-        maximumFractionDigits: value < 10 && unit > 0 ? 1 : 0,
-      }).format(value)
-    }
-  }, [i18n.language])
-}
 
 /** One line under the shelf, until it is used or closed. */
 function InstallHint() {
