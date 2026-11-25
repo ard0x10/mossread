@@ -1,11 +1,60 @@
 {
   "app": {
     "name": "Mossread",
+    "documentTitle": "{{name}} · Mossread",
     "tagline": "A calm place to read your own PDFs.",
     "privacy": "Your files stay on this device. Nothing is uploaded."
   },
   "home": {
-    "status": "Early build. Opening PDFs comes next."
+    "open": "Open PDF",
+    "opening": "Opening {{name}}…",
+    "dropHint": "or drop a PDF anywhere on this page",
+    "dropOverlay": "Drop the PDF to open it",
+    "errorInvalid": "This file isn't a PDF, or it's damaged.",
+    "errorUnknown": "This PDF couldn't be opened.",
+    "passwordTitle": "This PDF is protected",
+    "passwordLabel": "Password",
+    "passwordSubmit": "Open",
+    "passwordWrong": "That password didn't work. Try again.",
+    "passwordCancel": "Cancel"
+  },
+  "viewer": {
+    "close": "Close",
+    "contents": "Contents",
+    "settings": "Settings",
+    "documentLabel": "{{name}}",
+    "toolbarLabel": "Reading tools",
+    "pageLabel": "Page {{page, number}}",
+    "pageIndicator": "{{current, number}} / {{total, number}}",
+    "pageIndicatorLabel": "Page {{current, number}} of {{total, number}}. Go to page"
+  },
+  "contents": {
+    "title": "Contents",
+    "loading": "Loading…",
+    "empty": "This PDF has no table of contents.",
+    "page": "{{page, number}}"
+  },
+  "goto": {
+    "title": "Go to page",
+    "label": "Page number",
+    "hint": "From 1 to {{total, number}}",
+    "submit": "Go"
+  },
+  "settings": {
+    "title": "Settings",
+    "layout": "Page layout",
+    "layoutScroll": "Scroll",
+    "layoutPages": "Page by page",
+    "night": "Night mode",
+    "nightHint": "Dark pages with light text",
+    "zoom": "Zoom",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "zoomReset": "Reset zoom",
+    "zoomValue": "{{value, number(style: percent; maximumFractionDigits: 0)}}"
+  },
+  "sheet": {
+    "close": "Close"
   },
   "footer": {
     "openSource": "Free and open source under the MIT License. Fork it and make it your own.",

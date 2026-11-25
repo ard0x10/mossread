@@ -5,10 +5,13 @@
 
   /* Off-white and off-black on purpose: full contrast tires the eyes. */
   --bg: #f3f1ea;
+  --field: #fbfaf6;
   --text: #272b25;
   --muted: #5c6459;
   --accent: #4d6a43;
+  --on-accent: #fbfaf6;
   --line: #dbd8cd;
+  --danger: #9b2c1f;
 
   --gutter: 1rem;
   --tap: 2.75rem;
@@ -23,10 +26,13 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #161a15;
+    --field: #1d221c;
     --text: #dde2d7;
     --muted: #98a190;
     --accent: #93ad86;
+    --on-accent: #161a15;
     --line: #2a3027;
+    --danger: #f0a08f;
   }
 }
 
@@ -43,6 +49,83 @@ body {
   color: var(--text);
   -webkit-tap-highlight-color: transparent;
 }
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Buttons and fields */
+
+.button-primary {
+  min-block-size: var(--tap);
+  padding-inline: 1.25rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.button-primary:disabled {
+  opacity: 0.55;
+}
+
+.button-large {
+  inline-size: 100%;
+  min-block-size: 3.5rem;
+  font-size: 1.0625rem;
+}
+
+.button-quiet {
+  min-block-size: var(--tap);
+  padding-inline: 0.75rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.field-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* 16px or more, so phones do not zoom the page when the field gets focus. */
+.field-input {
+  min-block-size: var(--tap);
+  padding-inline: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--field);
+  font-size: 1rem;
+}
+
+/* Home */
 
 .shell {
   display: flex;
@@ -69,12 +152,19 @@ body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.75rem;
+  gap: 2rem;
   inline-size: 100%;
   max-inline-size: 34rem;
   margin-inline: auto;
-  padding-block: 2rem;
+  padding-block: 2rem 1rem;
+}
+
+/* On a phone the intro floats in the free space and the button sits low, under the thumb. */
+.home-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-block: auto;
 }
 
 .home-title {
@@ -85,15 +175,76 @@ body {
   text-wrap: balance;
 }
 
-.home-note,
-.home-status {
+.home-note {
   margin: 0;
   color: var(--muted);
 }
 
-.home-status {
-  font-size: 0.875rem;
+.home-actions {
+  display: flex;
+  flex-direction: column;
 }
+
+.home-error {
+  margin: 0 0 0.75rem;
+  color: var(--danger);
+}
+
+.home-drop-hint {
+  display: none;
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-drop-hint {
+    display: block;
+  }
+}
+
+.home-password {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.home-password-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+}
+
+.home-password .home-error {
+  margin: 0;
+}
+
+.home-password-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  outline: 3px dashed var(--accent);
+  outline-offset: -1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.drop-overlay p {
+  margin: 0;
+}
+
+/* Footer */
 
 .footer {
   display: flex;
@@ -128,5 +279,13 @@ body {
 @media (min-width: 48rem) {
   :root {
     --gutter: 2rem;
+  }
+
+  .home {
+    justify-content: center;
+  }
+
+  .home-intro {
+    margin-block: 0;
   }
 }
