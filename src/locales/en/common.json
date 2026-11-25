@@ -2,8 +2,7 @@
   "app": {
     "name": "Mossread",
     "documentTitle": "{{name}} · Mossread",
-    "tagline": "A calm place to read your own PDFs.",
-    "privacy": "Your files stay on this device. Nothing is uploaded."
+    "tagline": "A calm place to read your own PDFs."
   },
   "home": {
     "open": "Open PDF",
@@ -26,7 +25,6 @@
     "usage_one": "{{count, number}} book · {{size}} on this device",
     "usage_other": "{{count, number}} books · {{size}} on this device",
     "remember": "Remember opened files",
-    "rememberHint": "Keep PDFs on this device so you can come back to them. Nothing is uploaded.",
     "deleteLabel": "Delete {{name}}",
     "deleteTitle": "Delete “{{name}}”?",
     "deleteBody": "{{size}} on this device, with your reading place. This can’t be undone.",
@@ -169,7 +167,7 @@
     "close": "Close"
   },
   "footer": {
-    "openSource": "Free and open source under the MIT License. Fork it and make it your own.",
+    "openSource": "Open source · MIT",
     "sourceCode": "Source code"
   }
 }

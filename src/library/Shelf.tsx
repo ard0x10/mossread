@@ -80,7 +80,7 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
     <section className="shelf" aria-labelledby="shelf-title">
       {books.length > 0 && (
         <>
-          <h2 id="shelf-title" className="shelf-title">
+          <h2 id="shelf-title" className="visually-hidden">
             {t('library.title')}
           </h2>
           <ul className="shelf-grid">
@@ -122,12 +122,9 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
       )}
 
       <div className="shelf-remember">
-        <div>
-          <h3 id="shelf-remember" className="setting-name">
-            {t('library.remember')}
-          </h3>
-          <p className="setting-hint">{t('library.rememberHint')}</p>
-        </div>
+        <h3 id="shelf-remember" className="setting-name">
+          {t('library.remember')}
+        </h3>
         <button
           type="button"
           className="switch"

@@ -139,15 +139,18 @@ export function Home({ onOpen }: HomeProps) {
 
   return (
     <div className="shell">
-      <header className="topbar">
-        <span className="wordmark">{t('app.name')}</span>
+      <header className="brand">
+        <h1 className="brand-name">
+          <picture>
+            <source srcSet="/icons/icon.svg" media="(prefers-color-scheme: dark)" />
+            <img className="brand-logo" src="/icons/mark.svg" alt="" draggable={false} />
+          </picture>
+          {t('app.name')}
+        </h1>
+        <p className="brand-tagline">{t('app.tagline')}</p>
       </header>
 
       <main className="home">
-        <div className="home-intro">
-          <h1 className="home-title">{t('app.tagline')}</h1>
-          <p className="home-note">{t('app.privacy')}</p>
-        </div>
 
         {state.kind === 'password' ? (
           <form
@@ -237,7 +240,8 @@ export function Home({ onOpen }: HomeProps) {
       </main>
 
       <footer className="footer">
-        <p className="footer-text">{t('footer.openSource')}</p>
+        <span>{t('footer.openSource')}</span>
+        <span aria-hidden="true">·</span>
         <a className="footer-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">
           {t('footer.sourceCode')}
         </a>
