@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
+const SOURCE_URL = 'https://github.com/ard0x10/mossread'
+
 export default function App() {
   const { t } = useTranslation()
 
@@ -13,6 +15,12 @@ export default function App() {
         <p className="home-note">{t('app.privacy')}</p>
         <p className="home-status">{t('home.status')}</p>
       </main>
+      <footer className="footer">
+        <p className="footer-text">{t('footer.openSource')}</p>
+        <a className="footer-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">
+          {t('footer.sourceCode')}
+        </a>
+      </footer>
     </div>
   )
 }

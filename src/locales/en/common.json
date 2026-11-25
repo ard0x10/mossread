@@ -6,5 +6,9 @@
   },
   "home": {
     "status": "Early build. Opening PDFs comes next."
+  },
+  "footer": {
+    "openSource": "Free and open source under the MIT License. Fork it and make it your own.",
+    "sourceCode": "Source code"
   }
 }
