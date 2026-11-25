@@ -437,28 +437,38 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
     )
   }
 
+  // Two blocks can start on the same line (cells of a table row); the later ones get a count.
+  const used = new Map<string, number>()
+  const keyOf = (block: Block) => {
+    const base = blockKey(block)
+    const count = used.get(base) ?? 0
+    used.set(base, count + 1)
+    return count === 0 ? base : `${base}#${count}`
+  }
+
   return (
     <section className="reflow-page" data-page={page}>
       {section.blocks.map((block, index) => {
+        const key = keyOf(block)
         switch (block.kind) {
           case 'heading': {
             const Tag = block.level === 1 ? 'h2' : block.level === 2 ? 'h3' : 'h4'
             return (
-              <Tag key={blockKey(block)} className={`reflow-heading level-${block.level}`} data-b={index} ref={register(block)}>
+              <Tag key={key} className={`reflow-heading level-${block.level}`} data-b={index} ref={register(block)}>
                 {block.text}
               </Tag>
             )
           }
           case 'code':
             return (
-              <pre key={blockKey(block)} className="reflow-code" data-b={index} ref={register(block)}>
+              <pre key={key} className="reflow-code" data-b={index} ref={register(block)}>
                 <code>{block.text}</code>
               </pre>
             )
           case 'figure':
             return (
               <button
-                key={blockKey(block)}
+                key={key}
                 type="button"
                 className="reflow-card"
                 data-b={index}
@@ -472,7 +482,7 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
           default:
             return (
               <p
-                key={blockKey(block)}
+                key={key}
                 className={[
                   'reflow-paragraph',
                   block.list ? 'is-list' : '',
