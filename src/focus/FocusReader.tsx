@@ -16,6 +16,7 @@ import { useWakeLock } from './useWakeLock'
 import {
   chunkDuration,
   chunkEnd,
+  neighbourGroups,
   pivotIndex,
   rampFactor,
   rewindSentence,
@@ -80,7 +81,7 @@ export function FocusReader({
   const [ended, setEnded] = useState(false)
   // Groups shown since the last start or resume, for the slow start.
   const shown = useRef(0)
-  const { wpm, size } = settings
+  const { wpm, size, neighbours } = settings
   const tokens = stream.tokens
 
   useWakeLock(playing && !paused)
@@ -218,7 +219,17 @@ export function FocusReader({
   const shownText = current && !card ? textOf(tokens, index, end) : ''
   const pivot = pivotIndex(shownText, end - index > 1)
 
-  // A long word is drawn smaller rather than past the edges.
+  // The groups around it, faded, when the reader asked for them.
+  let nearBefore = ''
+  let nearAfter = ''
+  if (neighbours > 0 && shownText) {
+    const near = neighbourGroups(tokens, index, end, size, neighbours)
+    nearBefore = near.before.map(([a, b]) => textOf(tokens, a, b)).join(' ')
+    nearAfter = near.after.map(([a, b]) => textOf(tokens, a, b)).join(' ')
+  }
+
+  // A long word is drawn smaller rather than past the edges; the neighbours
+  // take the same size and are cut, fading, where they run out of room.
   const wordRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const word = wordRef.current
@@ -226,12 +237,25 @@ export function FocusReader({
     word.style.setProperty('--fit', '1')
     const half = word.clientWidth / 2
     let widest = 0
-    for (const part of word.querySelectorAll<HTMLElement>('.focus-before, .focus-after'))
-      widest = Math.max(widest, part.scrollWidth)
+    for (const part of word.querySelectorAll<HTMLElement>('.focus-own')) widest = Math.max(widest, part.offsetWidth)
     const pivotWidth = word.querySelector<HTMLElement>('.focus-pivot')?.offsetWidth ?? 0
     const room = half - pivotWidth / 2
     if (widest > room && room > 0) word.style.setProperty('--fit', String(Math.max(0.4, room / widest)))
-  }, [shownText])
+
+    const em = Number.parseFloat(getComputedStyle(word).fontSize) || 16
+    for (const side of word.querySelectorAll<HTMLElement>('.focus-before, .focus-after')) {
+      const near = side.querySelector<HTMLElement>('.focus-near')
+      if (!near) continue
+      const own = side.querySelector<HTMLElement>('.focus-own')?.offsetWidth ?? 0
+      const free = Math.max(0, side.clientWidth - own)
+      const cut = near.offsetWidth > free
+      near.classList.toggle('is-cut', cut)
+      if (cut) {
+        near.style.setProperty('--cut', `${free}px`)
+        near.style.setProperty('--fade', `${Math.min(free * 0.6, em * 2.5)}px`)
+      }
+    }
+  }, [shownText, nearBefore, nearAfter])
 
   const showChrome = !playing || ended || waiting || empty
 
@@ -292,9 +316,15 @@ export function FocusReader({
           </p>
         ) : (
           <div ref={wordRef} className="focus-word">
-            <span className="focus-before">{shownText.slice(0, pivot)}</span>
+            <span className="focus-before">
+              {nearBefore && <span className="focus-near">{`${nearBefore} `}</span>}
+              <span className="focus-own">{shownText.slice(0, pivot)}</span>
+            </span>
             <span className="focus-pivot">{shownText[pivot]}</span>
-            <span className="focus-after">{shownText.slice(pivot + 1)}</span>
+            <span className="focus-after">
+              <span className="focus-own">{shownText.slice(pivot + 1)}</span>
+              {nearAfter && <span className="focus-near">{` ${nearAfter}`}</span>}
+            </span>
           </div>
         )}
         {context && (

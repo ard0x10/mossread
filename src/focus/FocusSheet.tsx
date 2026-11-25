@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { loadOutline, type OutlineEntry } from '../pdf/outline'
 import type { PDFDocumentProxy } from '../pdf/pdfjs'
 import { Sheet } from '../viewer/Sheet'
-import { MAX_WPM, MIN_WPM, SIZES, WPM_STEP, type FocusSettings } from './settings'
+import { MAX_WPM, MIN_WPM, NEIGHBOURS, SIZES, WPM_STEP, type FocusSettings } from './settings'
 import type { Scope } from './stream'
 
 export type FocusKind = 'focus' | 'line'
@@ -182,6 +182,28 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
                 </button>
               ))}
             </div>
+          </section>
+        )}
+
+        {kind === 'focus' && (
+          <section className="setting" aria-labelledby="focus-neighbours">
+            <h3 id="focus-neighbours" className="setting-name">
+              {t('focus.neighbours')}
+            </h3>
+            <div className="segmented is-three" role="group" aria-labelledby="focus-neighbours">
+              {NEIGHBOURS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="segmented-option"
+                  aria-pressed={settings.neighbours === value}
+                  onClick={() => onChange({ neighbours: value })}
+                >
+                  {value === 0 ? t('focus.neighboursOff') : value}
+                </button>
+              ))}
+            </div>
+            <p className="setting-hint">{t('focus.neighboursHint')}</p>
           </section>
         )}
 

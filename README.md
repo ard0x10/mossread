@@ -22,7 +22,8 @@ your files are never uploaded, and there is no account and no tracking.
   the two views keeps your place.
 - **Focus.** Words appear one at a time, or a few at a time, in the same spot,
   at the speed you set. Pause to see the whole sentence, step back a sentence
-  or skip ahead.
+  or skip ahead. You can also keep the words before and after in view,
+  faded on either side.
 - **Line focus.** One line is lit and the rest of the page is dimmed. Move
   line by line yourself or let it move on at your pace. One line or three.
 - **Read with.** Select a passage in either view and read just that part in

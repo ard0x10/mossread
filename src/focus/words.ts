@@ -154,6 +154,54 @@ export function chunkEnd(tokens: readonly Token[], from: number, size: number): 
   return end
 }
 
+const sameBlock = (a: Token, b: Token) => a.at.section === b.at.section && a.at.block === b.at.block
+
+const breaksAfter = (token: Token) => token.kind === 'card' || (token.flags & (SENTENCE | CLAUSE | PARAGRAPH)) !== 0
+
+/**
+ * The groups [start, end) next to the one at [from, to), up to `count` on
+ * each side and never outside its paragraph or heading. The groups after are
+ * the ones that will be shown next; the ones before are cut the same way,
+ * starting again at each punctuation mark as reading does.
+ */
+export function neighbourGroups(
+  tokens: readonly Token[],
+  from: number,
+  to: number,
+  size: number,
+  count: number,
+): { before: [number, number][]; after: [number, number][] } {
+  const before: [number, number][] = []
+  const after: [number, number][] = []
+  const here = tokens[from]
+  if (!here || here.kind === 'card' || count <= 0) return { before, after }
+  const inBlock = (k: number) => {
+    const token = tokens[k]
+    return token !== undefined && token.kind === 'word' && sameBlock(token, here)
+  }
+
+  let start = from
+  while (before.length < count && inBlock(start - 1)) {
+    let segment = start - 1
+    while (inBlock(segment - 1) && !breaksAfter(tokens[segment - 1])) segment--
+    const groups: [number, number][] = []
+    for (let k = segment; k < start; ) {
+      const end = Math.min(chunkEnd(tokens, k, size), start)
+      groups.push([k, end])
+      k = end
+    }
+    before.unshift(...groups.slice(-(count - before.length)))
+    start = segment
+  }
+
+  for (let k = to; after.length < count && inBlock(k); ) {
+    const end = chunkEnd(tokens, k, size)
+    after.push([k, end])
+    k = end
+  }
+  return { before, after }
+}
+
 export const CARD_MS = 1100
 /** Groups after a start or a resume that are shown slower, rising to full speed. */
 export const RAMP = 8

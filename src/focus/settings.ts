@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export type LineAdvance = 'tap' | 'auto'
+export type Neighbours = 0 | 1 | 2
 
 export interface FocusSettings {
   /** Words per minute, before the pauses at punctuation. */
@@ -10,16 +11,19 @@ export interface FocusSettings {
   /** Lines left lit in line focus: the one being read, or it and its neighbours. */
   lines: 1 | 3
   lineAdvance: LineAdvance
+  /** Groups shown faded on each side of the one being read in focus mode. */
+  neighbours: Neighbours
 }
 
 export const MIN_WPM = 100
 export const MAX_WPM = 1000
 export const WPM_STEP = 25
 export const SIZES = [1, 2, 3, 4, 5] as const
+export const NEIGHBOURS = [0, 1, 2] as const
 
 const STORAGE_KEY = 'mossread.focus'
 
-const DEFAULTS: FocusSettings = { wpm: 250, size: 1, lines: 1, lineAdvance: 'tap' }
+const DEFAULTS: FocusSettings = { wpm: 250, size: 1, lines: 1, lineAdvance: 'tap', neighbours: 0 }
 
 function readSettings(): FocusSettings {
   try {
@@ -32,6 +36,7 @@ function readSettings(): FocusSettings {
       size: SIZES.includes(saved.size as 1) ? (saved.size as number) : DEFAULTS.size,
       lines: saved.lines === 3 ? 3 : 1,
       lineAdvance: saved.lineAdvance === 'auto' ? 'auto' : 'tap',
+      neighbours: saved.neighbours === 1 || saved.neighbours === 2 ? saved.neighbours : 0,
     }
   } catch {
     return DEFAULTS

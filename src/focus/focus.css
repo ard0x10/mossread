@@ -102,8 +102,37 @@
   inset-block-start: calc(100% + 0.3em);
 }
 
+.focus-before,
+.focus-after {
+  display: flex;
+  min-inline-size: 0;
+  overflow: clip;
+  /* A word too long even at the smallest size may still use the margin, as before. */
+  overflow-clip-margin: var(--gutter);
+}
+
+/* Packed against the middle letter; a long line runs out past the outer edge. */
 .focus-before {
-  text-align: end;
+  justify-content: flex-end;
+}
+
+.focus-before > *,
+.focus-after > * {
+  flex: none;
+}
+
+.focus-near {
+  color: var(--muted);
+}
+
+.focus-before > .focus-near.is-cut {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(var(--cut) - var(--fade)), transparent var(--cut));
+  mask-image: linear-gradient(to left, #000 calc(var(--cut) - var(--fade)), transparent var(--cut));
+}
+
+.focus-after > .focus-near.is-cut {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(var(--cut) - var(--fade)), transparent var(--cut));
+  mask-image: linear-gradient(to right, #000 calc(var(--cut) - var(--fade)), transparent var(--cut));
 }
 
 .focus-pivot {
@@ -369,6 +398,10 @@
 .scope-chapters .contents-list {
   max-block-size: 45vh;
   overflow-y: auto;
+}
+
+.segmented.is-three {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .segmented.is-five {
