@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import { FocusReader } from '../focus/FocusReader'
+import { FocusSheet, type FocusKind } from '../focus/FocusSheet'
+import { LineFocus, type LineFocusHandle } from '../focus/LineFocus'
+import { useFocusSettings } from '../focus/settings'
+import type { Locator, Scope, Spot } from '../focus/stream'
+import { useBackHandler } from '../lib/backStack'
 import type { SavedPosition } from '../library/db'
 import type { OpenedPdf } from '../pdf/pdfjs'
 import { Reflow, type Position, type ReflowHandle } from '../reflow/Reflow'
 import { ReflowSettingsSheet } from '../reflow/ReflowSettingsSheet'
-import { useReflowSettings } from '../reflow/settings'
+import { FONT_STACKS, useReflowSettings } from '../reflow/settings'
 import { TextStore } from '../text/store'
 import { ContentsSheet } from './ContentsSheet'
 import { GoToSheet } from './GoToSheet'
@@ -27,7 +33,35 @@ interface ViewerProps {
 // How often the reading position is checked for the library.
 const POSITION_INTERVAL = 2000
 
-type SheetName = 'contents' | 'goto' | 'settings'
+type SheetName = 'contents' | 'goto' | 'settings' | 'focus'
+
+/** A focus mode in use: what it reads, and an id that changes when the scope does. */
+interface Reading {
+  kind: FocusKind
+  scope: Scope
+  id: number
+}
+
+const startOf = (scope: Scope): Locator =>
+  scope.kind === 'pages' ? { spot: { page: scope.from, y: 0 } } : scope.start
+
+/** True for a line past the end of a scope. */
+function isBeyond(scope: Scope, line: Locator): boolean {
+  if (scope.kind === 'here') return false
+  if (scope.kind === 'pages') return line.spot.page > scope.to
+  const { end } = scope
+  if (end.point && line.point) {
+    const a = line.point
+    const b = end.point
+    return a.section > b.section || (a.section === b.section && (a.block > b.block || (a.block === b.block && a.offset >= b.offset)))
+  }
+  return line.spot.page > end.spot.page || (line.spot.page === end.spot.page && line.spot.y > end.spot.y + 0.002)
+}
+
+// How long a finished selection waits before the "Read with" bar goes, so a
+// tap on the bar (which can clear the selection first) still lands.
+const PICK_SHOW_DELAY = 150
+const PICK_HIDE_DELAY = 400
 
 const GAP = 8
 // On a wide screen, "fit width" stops here; a full-width A4 page is too big to read.
@@ -71,6 +105,16 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
   const [chromeVisible, setChromeVisible] = useState(true)
   const chromeVisibleRef = useRef(true)
   const [sheet, setSheet] = useState<SheetName | null>(null)
+  const [focusSettings, updateFocusSettings] = useFocusSettings()
+  const [reading, setReading] = useState<Reading | null>(null)
+  const readingId = useRef(0)
+  // Where focus mode is, for the library and for going back when it closes.
+  const focusSpot = useRef<Spot | null>(null)
+  const lineRef = useRef<LineFocusHandle>(null)
+  const [linePlaying, setLinePlaying] = useState(false)
+  // The page focus mode is on, for the options sheet's "this page".
+  const [focusPage, setFocusPage] = useState(1)
+  const [picked, setPicked] = useState<Extract<Scope, { kind: 'selection' }> | null>(null)
 
   useEffect(() => {
     chromeVisibleRef.current = chromeVisible
@@ -247,7 +291,9 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
     reportPosition.current = () => {
       if (!onPosition || !restored.current) return
       let spot: Position | null
-      if (mode === 'text' && store) {
+      if (reading?.kind === 'focus' && focusSpot.current) {
+        spot = focusSpot.current
+      } else if (mode === 'text' && store) {
         const reflow = reflowRef.current
         spot = reflow && reflow.ready() ? reflow.position() : null
       } else {
@@ -277,6 +323,128 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
       window.removeEventListener('pagehide', report)
     }
   }, [onPosition])
+
+  const textMode = mode === 'text' && store !== null
+
+  /** Starts a focus mode: on a given scope, or from the first line in view to the end. */
+  const startReading = (kind: FocusKind, given?: Scope) => {
+    let scope = given
+    if (!scope) {
+      const reflow = reflowRef.current
+      const start: Locator | null = textMode && reflow ? (reflow.point() ?? { spot: reflow.position() }) : { spot: pagePosition() }
+      scope = { kind: 'here', start: start ?? { spot: { page: 1, y: 0 } } }
+    }
+    window.getSelection()?.removeAllRanges()
+    setPicked(null)
+    setSheet(null)
+    setStore((existing) => existing ?? new TextStore(doc))
+    if (kind === 'line') {
+      const start = startOf(scope)
+      if (!textMode) switchMode('text', start.spot)
+      else if (scope.kind === 'pages') reflowRef.current?.jumpTo(start.spot)
+      setLinePlaying(false)
+    } else {
+      focusSpot.current = startOf(scope).spot
+    }
+    readingId.current += 1
+    setReading({ kind, scope, id: readingId.current })
+  }
+
+  const closeFocus = useCallback(
+    (at: Spot | null) => {
+      setReading(null)
+      focusSpot.current = null
+      if (!at) return
+      if (mode === 'text') reflowRef.current?.jumpTo(at)
+      else jumpToSpot(at)
+    },
+    [mode, jumpToSpot],
+  )
+
+  const closeLine = useCallback(() => {
+    setReading(null)
+    setLinePlaying(false)
+  }, [])
+
+  useBackHandler(reading?.kind === 'line', closeLine)
+  // Registered here rather than in the focus screen, which mounts already
+  // open: React runs a mount effect twice in development and the history
+  // entry would be pushed, dropped and pushed again.
+  useBackHandler(reading?.kind === 'focus', () => closeFocus(focusSpot.current))
+
+  const changeScope = (next: Scope | 'here') => {
+    if (!reading) return
+    let scope: Scope
+    if (next === 'here') {
+      const here = reading.kind === 'focus' ? focusSpot.current : reflowRef.current?.position()
+      scope = { kind: 'here', start: { spot: here ?? startOf(reading.scope).spot } }
+    } else {
+      scope = next
+    }
+    setSheet(null)
+    if (reading.kind === 'line') {
+      if (scope.kind === 'pages') reflowRef.current?.jumpTo(startOf(scope).spot)
+      setLinePlaying(false)
+    } else {
+      focusSpot.current = startOf(scope).spot
+    }
+    readingId.current += 1
+    setReading({ kind: reading.kind, scope, id: readingId.current })
+  }
+
+  const onFocusSpot = useCallback((at: Spot) => {
+    focusSpot.current = at
+    setFocusPage(at.page)
+  }, [])
+
+  // A selection offers to be read in a focus mode. The bar shows once the
+  // selection stops changing.
+  const textModeRef = useRef(textMode)
+  useEffect(() => {
+    textModeRef.current = textMode
+  })
+  useEffect(() => {
+    let timer = 0
+    const pageSelection = (): Extract<Scope, { kind: 'selection' }> | null => {
+      const selection = window.getSelection()
+      const scroller = scrollerRef.current
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !scroller) return null
+      const range = selection.getRangeAt(0)
+      if (!scroller.contains(range.commonAncestorContainer)) return null
+      const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0)
+      const edge = (node: Node, rect: DOMRect | undefined): Locator | null => {
+        const page = (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>('.page[data-page]')
+        if (!page || !rect) return null
+        const box = page.getBoundingClientRect()
+        return { spot: { page: Number(page.dataset.page), y: Math.min(Math.max((rect.top - box.top) / box.height, 0), 1) } }
+      }
+      const start = edge(range.startContainer, rects[0])
+      const end = edge(range.endContainer, rects.at(-1))
+      const text = selection.toString()
+      return start && end && text.trim() ? { kind: 'selection', start, end, text } : null
+    }
+    const update = () => {
+      let next: Extract<Scope, { kind: 'selection' }> | null = null
+      if (textModeRef.current) {
+        const found = reflowRef.current?.selection()
+        if (found && found.text.trim()) next = { kind: 'selection', ...found }
+      } else {
+        next = pageSelection()
+      }
+      setPicked(next)
+    }
+    const onChange = () => {
+      window.clearTimeout(timer)
+      const selection = window.getSelection()
+      const collapsed = !selection || selection.isCollapsed
+      timer = window.setTimeout(update, collapsed ? PICK_HIDE_DELAY : PICK_SHOW_DELAY)
+    }
+    document.addEventListener('selectionchange', onChange)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('selectionchange', onChange)
+    }
+  }, [])
 
   const closeBook = () => {
     reportPosition.current()
@@ -367,6 +535,13 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
 
   const closeSheet = useCallback(() => setSheet(null), [])
 
+  const scopeLabel = (scope: Scope): string => {
+    if (scope.kind === 'here') return t('focus.scopeHere')
+    if (scope.kind === 'selection') return t('focus.scopeSelection')
+    if (scope.title) return scope.title
+    return scope.from === scope.to ? t('focus.scopePage', { page: scope.from }) : t('focus.scopePages', { from: scope.from, to: scope.to })
+  }
+
   const pageViews = (n: number) =>
     fallbackSize && fit ? (
       <PageView
@@ -380,8 +555,8 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
       />
     ) : null
 
-  const textMode = mode === 'text' && store !== null
   const shownPage = textMode ? textPage : current
+  const lineMode = reading?.kind === 'line' && textMode
   const goTo = (page: number) => {
     setSheet(null)
     if (textMode) reflowRef.current?.jumpTo({ page, y: 0 })
@@ -390,12 +565,14 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
   const viewerClass = [
     'viewer',
     chromeVisible ? '' : 'is-chrome-hidden',
-    textMode ? `is-text theme-${reflowSettings.theme}` : '',
+    textMode ? 'is-text' : '',
+    textMode || reading ? `theme-${reflowSettings.theme}` : '',
+    lineMode ? 'is-line' : '',
   ]
     .filter(Boolean)
     .join(' ')
   const viewerStyle =
-    textMode && reflowSettings.theme === 'custom'
+    (textMode || reading) && reflowSettings.theme === 'custom'
       ? ({ '--bg': reflowSettings.customBackground, '--text': reflowSettings.customText } as CSSProperties)
       : undefined
 
@@ -434,8 +611,29 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
           topInset={topInset}
           onPageChange={setTextPage}
           onShowPage={(spot) => switchMode('page', spot)}
-          onTap={() => setChromeVisible((visible) => !visible)}
+          onTap={(clientY) => {
+            if (lineMode) lineRef.current?.tap(clientY)
+            else setChromeVisible((visible) => !visible)
+          }}
           handle={reflowRef}
+        />
+      )}
+
+      {lineMode && reading && store && (
+        <LineFocus
+          key={reading.id}
+          elements={() => {
+            const reflow = reflowRef.current
+            return reflow && reflow.ready() ? reflow.elements() : null
+          }}
+          start={startOf(reading.scope)}
+          beyond={(line) => isBeyond(reading.scope, line)}
+          settings={focusSettings}
+          playing={linePlaying}
+          onPlayingChange={setLinePlaying}
+          onEnd={() => setLinePlaying(false)}
+          insets={() => ({ top: 0, bottom: bottomBarRef.current?.offsetHeight ?? 0 })}
+          handle={lineRef}
         />
       )}
 
@@ -465,22 +663,92 @@ export function Viewer({ pdf, fileName, start, onPosition, onClose }: ViewerProp
         )}
       </div>
 
-      <nav ref={bottomBarRef} className="viewer-bar viewer-bottombar" aria-label={t('viewer.toolbarLabel')}>
-        <button type="button" className="button-quiet" onClick={() => setSheet('contents')}>
-          {t('viewer.contents')}
-        </button>
-        <button
-          type="button"
-          className="viewer-page-indicator"
-          aria-label={t('viewer.pageIndicatorLabel', { current: shownPage, total })}
-          onClick={() => setSheet('goto')}
-        >
-          {t('viewer.pageIndicator', { current: shownPage, total })}
-        </button>
-        <button type="button" className="button-quiet" onClick={() => setSheet('settings')}>
-          {t('viewer.settings')}
-        </button>
-      </nav>
+      {picked && !reading && (
+        <div className="read-with" role="toolbar" aria-label={t('focus.readWith')} onPointerDown={(event) => event.preventDefault()}>
+          <span className="read-with-label">{t('focus.readWith')}</span>
+          <button type="button" className="button-quiet" onClick={() => startReading('focus', picked)}>
+            {t('focus.modeFocus')}
+          </button>
+          <button type="button" className="button-quiet" onClick={() => startReading('line', picked)}>
+            {t('focus.modeLine')}
+          </button>
+        </div>
+      )}
+
+      {lineMode ? (
+        <nav ref={bottomBarRef} className="viewer-bar viewer-bottombar line-bar" aria-label={t('focus.lineTools')}>
+          <button type="button" className="button-quiet" onClick={closeLine}>
+            {t('focus.done')}
+          </button>
+          <button type="button" className="button-quiet" aria-label={t('focus.previousLineLabel')} onClick={() => lineRef.current?.step(-1)}>
+            {t('focus.previousLine')}
+          </button>
+          {focusSettings.lineAdvance === 'auto' ? (
+            <button type="button" className="button-quiet" onClick={() => setLinePlaying((value) => !value)}>
+              {linePlaying ? t('focus.pause') : t('focus.play')}
+            </button>
+          ) : (
+            <button type="button" className="button-quiet" aria-label={t('focus.nextLineLabel')} onClick={() => lineRef.current?.step(1)}>
+              {t('focus.nextLine')}
+            </button>
+          )}
+          <button type="button" className="button-quiet" onClick={() => setSheet('focus')}>
+            {t('focus.options')}
+          </button>
+        </nav>
+      ) : (
+        <nav ref={bottomBarRef} className="viewer-bar viewer-bottombar" aria-label={t('viewer.toolbarLabel')}>
+          <button type="button" className="button-quiet" onClick={() => setSheet('contents')}>
+            {t('viewer.contents')}
+          </button>
+          <button type="button" className="button-quiet" onClick={() => startReading('focus')}>
+            {t('focus.modeFocus')}
+          </button>
+          <button
+            type="button"
+            className="viewer-page-indicator"
+            aria-label={t('viewer.pageIndicatorLabel', { current: shownPage, total })}
+            onClick={() => setSheet('goto')}
+          >
+            {t('viewer.pageIndicator', { current: shownPage, total })}
+          </button>
+          <button type="button" className="button-quiet" onClick={() => startReading('line')}>
+            {t('focus.modeLine')}
+          </button>
+          <button type="button" className="button-quiet" onClick={() => setSheet('settings')}>
+            {t('viewer.settings')}
+          </button>
+        </nav>
+      )}
+
+      {reading?.kind === 'focus' && store && (
+        <FocusReader
+          key={reading.id}
+          store={store}
+          cleanup={reflowSettings.cleanup}
+          scope={reading.scope}
+          scopeLabel={scopeLabel(reading.scope)}
+          font={FONT_STACKS[reflowSettings.font]}
+          settings={focusSettings}
+          paused={sheet === 'focus'}
+          onOptions={() => setSheet('focus')}
+          onClose={closeFocus}
+          onSpot={onFocusSpot}
+        />
+      )}
+      {reading && (
+        <FocusSheet
+          open={sheet === 'focus'}
+          kind={reading.kind}
+          doc={doc}
+          scope={reading.scope}
+          page={reading.kind === 'focus' ? focusPage : textPage}
+          settings={focusSettings}
+          onChange={updateFocusSettings}
+          onScope={changeScope}
+          onClose={closeSheet}
+        />
+      )}
 
       <ContentsSheet
         open={sheet === 'contents'}
