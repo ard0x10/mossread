@@ -160,13 +160,22 @@ export function FocusReader({
     onClose(current ? spotOf(current.at) : null)
   }, [current, onClose])
 
+  // The screen takes the keyboard when it opens, so the viewer button that opened it
+  // (still focused underneath) does not get the next key press.
+  const screenRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    screenRef.current?.focus({ preventScroll: true })
+  }, [])
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (paused || event.altKey || event.ctrlKey || event.metaKey) return
       const onButton = (event.target as Element | null)?.closest?.('button')
-      if ((event.key === ' ' || event.key === 'Enter') && !onButton) {
+      // Space always plays or pauses, as in a media player, even when a button was
+      // clicked last and still has focus. Enter is left to a focused button.
+      if (event.key === ' ' || (event.key === 'Enter' && !onButton)) {
         event.preventDefault()
-        toggle()
+        if (!event.repeat) toggle()
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault()
         back()
@@ -175,8 +184,16 @@ export function FocusReader({
         skip()
       }
     }
+    // A focused button acts on Space when the key comes up, not when it goes down.
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (!paused && event.key === ' ') event.preventDefault()
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+    }
   }, [paused, toggle, back, skip])
 
   // A tap pauses or resumes; a swipe to the left goes back a sentence.
@@ -237,6 +254,8 @@ export function FocusReader({
 
   return (
     <div
+      ref={screenRef}
+      tabIndex={-1}
       className={`focus-screen${showChrome ? '' : ' is-reading'}`}
       style={{ '--reading-font': font } as CSSProperties}
       onPointerDown={onPointerDown}

@@ -14,6 +14,11 @@
   -webkit-user-select: none;
 }
 
+/* It takes focus only to catch the keyboard; there is nothing to outline. */
+.focus-screen:focus {
+  outline: none;
+}
+
 .focus-bar {
   display: flex;
   align-items: center;
