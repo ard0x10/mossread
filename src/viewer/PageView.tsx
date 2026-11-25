@@ -134,7 +134,8 @@ export const PageView = memo(function PageView({
         await task.promise
         if (controller.signal.aborted) return
         paint.replaceChildren(canvas)
-        setPictures(picturesFrom(task.imageCoordinates))
+        // pdf.js records image places on the first render of a page only.
+        setPictures(picturesFrom(task.imageCoordinates ?? page.imageCoordinates))
       } catch {
         // Cancelled by scrolling away or zooming again; the old image stays.
       } finally {
