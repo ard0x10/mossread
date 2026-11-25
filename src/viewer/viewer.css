@@ -508,3 +508,10 @@
   visibility: hidden;
 }
 
+/* Night mode inverts the whole page; over a picture this inverts it back, so
+   photos and charts keep their real colours, a little dimmed. */
+.page-picture {
+  position: absolute;
+  pointer-events: none;
+  backdrop-filter: invert(1) hue-rotate(180deg);
+}

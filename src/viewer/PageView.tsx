@@ -27,6 +27,34 @@ interface PageViewProps {
 const MAX_CANVAS_PIXELS = 5_000_000
 const MAX_DEVICE_RATIO = 2
 
+/** A picture's box on the page, as fractions of its width and height. */
+interface Box {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+// Smaller than this (a bullet, a tiny icon) is left as it is.
+const MIN_PICTURE_AREA = 0.002
+
+/** pdf.js gives three corners of each drawn image, as fractions of the canvas. */
+function picturesFrom(coords: ArrayLike<number> | null): Box[] {
+  if (!coords) return []
+  const boxes: Box[] = []
+  for (let i = 0; i + 5 < coords.length; i += 6) {
+    const [x0, y0, x1, y1, x2, y2] = Array.from({ length: 6 }, (_, k) => coords[i + k])
+    const xs = [x0, x1, x2, x1 + x2 - x0]
+    const ys = [y0, y1, y2, y1 + y2 - y0]
+    const x = Math.max(0, Math.min(...xs))
+    const y = Math.max(0, Math.min(...ys))
+    const w = Math.min(1, Math.max(...xs)) - x
+    const h = Math.min(1, Math.max(...ys)) - y
+    if (w * h >= MIN_PICTURE_AREA) boxes.push({ x, y, w, h })
+  }
+  return boxes
+}
+
 function pixelRatioFor(cssWidth: number, cssHeight: number): number {
   const ratio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_RATIO)
   const pixels = cssWidth * cssHeight * ratio * ratio
@@ -46,6 +74,7 @@ export const PageView = memo(function PageView({
   const textRef = useRef<HTMLDivElement>(null)
   const scaleRef = useRef(scale)
   const [page, setPage] = useState<PDFPageProxy | null>(null)
+  const [pictures, setPictures] = useState<Box[]>([])
   const settledScale = useSettled(scale, 160)
 
   useEffect(() => {
@@ -100,9 +129,12 @@ export const PageView = memo(function PageView({
         canvas.width = Math.floor(viewport.width)
         canvas.height = Math.floor(viewport.height)
         canvas.className = 'page-canvas'
-        task = page.render({ canvas, viewport })
+        // Where the pictures are, so night mode can turn them back the right way round.
+        task = page.render({ canvas, viewport, recordImages: true })
         await task.promise
-        if (!controller.signal.aborted) paint.replaceChildren(canvas)
+        if (controller.signal.aborted) return
+        paint.replaceChildren(canvas)
+        setPictures(picturesFrom(task.imageCoordinates))
       } catch {
         // Cancelled by scrolling away or zooming again; the old image stays.
       } finally {
@@ -158,6 +190,21 @@ export const PageView = memo(function PageView({
       aria-label={t('viewer.pageLabel', { page: pageNumber })}
     >
       <div ref={paintRef} className="page-paint" aria-hidden="true" />
+      {night &&
+        page &&
+        pictures.map((box, i) => (
+          <div
+            key={i}
+            className="page-picture"
+            aria-hidden="true"
+            style={{
+              left: `${box.x * 100}%`,
+              top: `${box.y * 100}%`,
+              width: `${box.w * 100}%`,
+              height: `${box.h * 100}%`,
+            }}
+          />
+        ))}
       <div
         ref={textRef}
         className="textLayer"
