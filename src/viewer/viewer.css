@@ -209,8 +209,11 @@
   user-select: text;
 }
 
+/* Text sits above .endOfContent, which spreads over the whole layer during a
+   mouse selection; without this it would cover the text and block selecting. */
 .textLayer > :not(.markedContent),
 .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
   --font-height: 0;
   --scale-x: 1;
   --rotate: 0deg;
@@ -236,6 +239,7 @@
 .textLayer .endOfContent {
   position: absolute;
   inset: 100% 0 0;
+  z-index: 0;
   display: block;
   cursor: default;
   -webkit-user-select: none;

@@ -161,7 +161,9 @@ export const PageView = memo(function PageView({
       <div
         ref={textRef}
         className="textLayer"
-        onPointerDown={(e) => e.currentTarget.classList.add('selecting')}
+        // Only a mouse drag needs the end-of-content guard; touch selection uses
+        // the phone's own handles.
+        onPointerDown={(e) => e.pointerType === 'mouse' && e.currentTarget.classList.add('selecting')}
         onPointerUp={(e) => e.currentTarget.classList.remove('selecting')}
         onPointerCancel={(e) => e.currentTarget.classList.remove('selecting')}
       />
