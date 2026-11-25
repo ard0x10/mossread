@@ -63,23 +63,31 @@ function serviceWorker(): Plugin {
     enforce: 'post',
 
     generateBundle(_options, bundle) {
+      // Files in public/ (manifest, icons) are copied as they are and never enter the bundle.
+      const publicRoot = fileURLToPath(new URL('./public/', import.meta.url))
+      const publicFiles = (readdirSync(publicRoot, { recursive: true }) as string[])
+        .filter((name) => statSync(join(publicRoot, name)).isFile())
+        .map((name) => name.split(sep).join('/'))
+        .sort()
       const files = Object.keys(bundle)
         .filter((name) => !name.endsWith('.map'))
+        .concat(publicFiles)
         .map((name) => '/' + name.split(sep).join('/'))
-        .concat('/manifest.webmanifest')
         .sort()
-      if (!files.includes('/index.html') || !files.some((name) => name.startsWith('/pdfjs/'))) {
-        this.error(`service worker file list is missing the page or the pdf.js files (${files.length} files)`)
+      const required = ['/index.html', '/manifest.webmanifest', '/icons/icon-512.png']
+      const missing = required.filter((name) => !files.includes(name))
+      if (missing.length > 0 || !files.some((name) => name.startsWith('/pdfjs/'))) {
+        this.error(`service worker file list is missing ${missing.join(', ') || 'the pdf.js files'} (${files.length} files)`)
       }
       const template = readFileSync(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url)), 'utf8')
-      // The page, the pdf.js files, the manifest and this worker have no hash in
+      // The page, the pdf.js files, public/ and this worker have no hash in
       // their names, so the version is taken from what every file contains.
       const hash = createHash('sha256').update(template)
       for (const name of Object.keys(bundle).sort()) {
         const item = bundle[name]
         hash.update(name).update(item.type === 'chunk' ? item.code : item.source)
       }
-      hash.update(readFileSync(fileURLToPath(new URL('./public/manifest.webmanifest', import.meta.url))))
+      for (const name of publicFiles) hash.update(name).update(readFileSync(join(publicRoot, name)))
       const version = hash.digest('hex').slice(0, 12)
       const source = template
         .replace('__VERSION__', JSON.stringify(version))
