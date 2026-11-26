@@ -137,6 +137,15 @@
   },
   "settings": {
     "title": "Settings",
+    "groups": {
+      "text": "Text",
+      "colour": "Colour",
+      "layout": "Layout",
+      "cleanup": "Cleanup",
+      "pages": "Pages",
+      "show": "On screen",
+      "pace": "Pace"
+    },
     "layout": "Page layout",
     "layoutScroll": "Scroll",
     "layoutPages": "Page by page",

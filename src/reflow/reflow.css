@@ -278,10 +278,6 @@
 
 /* Settings for reading text */
 
-.segmented.is-three {
-  grid-template-columns: repeat(3, 1fr);
-}
-
 .font-sample {
   display: block;
   font-size: 1.125rem;
@@ -298,16 +294,6 @@
 
 .font-sample.font-atkinson {
   font-family: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
-}
-
-.font-name {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 400;
-}
-
-.segmented-option.has-sample {
-  padding-block: 0.4rem;
 }
 
 .themes {
@@ -372,9 +358,4 @@
   padding: 0;
   border: 0;
   background: none;
-}
-
-span.stepper-value {
-  display: inline-grid;
-  place-items: center;
 }

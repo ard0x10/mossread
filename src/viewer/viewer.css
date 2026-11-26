@@ -356,17 +356,6 @@
   padding-block-start: 0.25rem;
 }
 
-.setting-inline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.setting-inline .setting-name {
-  margin: 0;
-}
-
 .segmented {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -387,35 +376,6 @@
   background: var(--bg);
   font-weight: 600;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
-}
-
-.stepper {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.stepper-button,
-.stepper-value {
-  min-inline-size: var(--tap);
-  min-block-size: var(--tap);
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: transparent;
-}
-
-.stepper-button {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.stepper-button:disabled {
-  opacity: 0.4;
-}
-
-.stepper-value {
-  min-inline-size: 4.5rem;
-  font-variant-numeric: tabular-nums;
 }
 
 /* While the text view is open the pages stay laid out underneath (so going

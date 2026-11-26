@@ -1,4 +1,18 @@
 import { useTranslation } from 'react-i18next'
+import {
+  AlignDrawing,
+  CleanupGroupIcon,
+  ColourGroupIcon,
+  LargeTextMark,
+  LayoutGroupIcon,
+  LooseLinesMark,
+  MarginDrawing,
+  SmallTextMark,
+  TextGroupIcon,
+  TightLinesMark,
+  WidthDrawing,
+} from '../ui/drawings'
+import { SettingGroup, Slider, SwitchRow, VisualChoice } from '../ui/settings'
 import { Sheet } from '../viewer/Sheet'
 import {
   LINE_HEIGHTS,
@@ -25,11 +39,6 @@ const SWATCHES: Record<Exclude<ReadingTheme, 'custom'>, { background: string; te
   black: { background: '#000000', text: '#c9c9c4' },
 }
 
-function step<T>(list: readonly T[], value: T, direction: -1 | 1): T {
-  const index = list.indexOf(value)
-  return list[Math.min(Math.max(index + direction, 0), list.length - 1)] ?? value
-}
-
 export function ReflowSettingsSheet({ open, settings, onClose, onChange }: ReflowSettingsSheetProps) {
   const { t } = useTranslation()
 
@@ -38,20 +47,9 @@ export function ReflowSettingsSheet({ open, settings, onClose, onChange }: Reflo
     { value: 'literata', label: 'Literata' },
     { value: 'atkinson', label: 'Atkinson' },
   ]
-  const widths: Array<{ value: ColumnWidth; label: string }> = [
-    { value: 'narrow', label: t('reflowSettings.narrow') },
-    { value: 'medium', label: t('reflowSettings.medium') },
-    { value: 'wide', label: t('reflowSettings.wide') },
-  ]
-  const margins: Array<{ value: Margin; label: string }> = [
-    { value: 'small', label: t('reflowSettings.small') },
-    { value: 'medium', label: t('reflowSettings.medium') },
-    { value: 'large', label: t('reflowSettings.large') },
-  ]
-  const alignments: Array<{ value: Alignment; label: string }> = [
-    { value: 'start', label: t('reflowSettings.alignStart') },
-    { value: 'justify', label: t('reflowSettings.alignJustify') },
-  ]
+  const widths: ColumnWidth[] = ['narrow', 'medium', 'wide']
+  const margins: Margin[] = ['small', 'medium', 'large']
+  const alignments: Alignment[] = ['start', 'justify']
   const themes: Array<{ value: ReadingTheme; label: string }> = [
     { value: 'light', label: t('reflowSettings.themeLight') },
     { value: 'sepia', label: t('reflowSettings.themeSepia') },
@@ -60,97 +58,56 @@ export function ReflowSettingsSheet({ open, settings, onClose, onChange }: Reflo
     { value: 'custom', label: t('reflowSettings.themeCustom') },
   ]
 
-  const sizeIndex = SIZES.indexOf(settings.size)
-  const leadingIndex = LINE_HEIGHTS.indexOf(settings.lineHeight)
+  // The sliders move along the lists of sizes, so every stop is one the reader can get back to.
+  const sizeIndex = Math.max(0, SIZES.indexOf(settings.size))
+  const leadingIndex = Math.max(0, LINE_HEIGHTS.indexOf(settings.lineHeight))
 
   return (
     <Sheet open={open} title={t('settings.title')} onClose={onClose}>
-      <div className="settings">
-        <section className="setting" aria-labelledby="reflow-font">
-          <h3 id="reflow-font" className="setting-name">
-            {t('reflowSettings.font')}
-          </h3>
-          <div className="segmented is-three" role="group" aria-labelledby="reflow-font">
-            {fonts.map((font) => (
-              <button
-                key={font.value}
-                type="button"
-                className="segmented-option has-sample"
-                aria-pressed={settings.font === font.value}
-                onClick={() => onChange({ font: font.value })}
-              >
+      <div className="settings is-grouped">
+        <SettingGroup icon={<TextGroupIcon />} title={t('settings.groups.text')}>
+          <VisualChoice
+            name={t('reflowSettings.font')}
+            value={settings.font}
+            onChange={(font) => onChange({ font })}
+            choices={fonts.map((font) => ({
+              value: font.value,
+              label: font.label,
+              picture: (
                 <span className={`font-sample font-${font.value}`} aria-hidden="true">
                   Aa
                 </span>
-                <span className="font-name">{font.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+              ),
+            }))}
+          />
+          <Slider
+            name={t('reflowSettings.size')}
+            min={0}
+            max={SIZES.length - 1}
+            value={sizeIndex}
+            valueText={(k) => t('reflowSettings.sizeValue', { value: SIZES[k] })}
+            lower={<SmallTextMark />}
+            upper={<LargeTextMark />}
+            lowerLabel={t('reflowSettings.smaller')}
+            upperLabel={t('reflowSettings.larger')}
+            onChange={(k) => onChange({ size: SIZES[k] })}
+          />
+          <Slider
+            name={t('reflowSettings.lineHeight')}
+            min={0}
+            max={LINE_HEIGHTS.length - 1}
+            value={leadingIndex}
+            valueText={(k) => t('reflowSettings.lineHeightValue', { value: LINE_HEIGHTS[k] })}
+            lower={<TightLinesMark />}
+            upper={<LooseLinesMark />}
+            lowerLabel={t('reflowSettings.tighter')}
+            upperLabel={t('reflowSettings.looser')}
+            onChange={(k) => onChange({ lineHeight: LINE_HEIGHTS[k] })}
+          />
+        </SettingGroup>
 
-        <section className="setting setting-inline" aria-labelledby="reflow-size">
-          <h3 id="reflow-size" className="setting-name">
-            {t('reflowSettings.size')}
-          </h3>
-          <div className="stepper">
-            <button
-              type="button"
-              className="stepper-button"
-              aria-label={t('reflowSettings.smaller')}
-              disabled={sizeIndex <= 0}
-              onClick={() => onChange({ size: step(SIZES, settings.size, -1) })}
-            >
-              {'−'}
-            </button>
-            <span className="stepper-value" role="status">
-              {t('reflowSettings.sizeValue', { value: settings.size })}
-            </span>
-            <button
-              type="button"
-              className="stepper-button"
-              aria-label={t('reflowSettings.larger')}
-              disabled={sizeIndex >= SIZES.length - 1}
-              onClick={() => onChange({ size: step(SIZES, settings.size, 1) })}
-            >
-              +
-            </button>
-          </div>
-        </section>
-
-        <section className="setting setting-inline" aria-labelledby="reflow-leading">
-          <h3 id="reflow-leading" className="setting-name">
-            {t('reflowSettings.lineHeight')}
-          </h3>
-          <div className="stepper">
-            <button
-              type="button"
-              className="stepper-button"
-              aria-label={t('reflowSettings.tighter')}
-              disabled={leadingIndex <= 0}
-              onClick={() => onChange({ lineHeight: step(LINE_HEIGHTS, settings.lineHeight, -1) })}
-            >
-              {'−'}
-            </button>
-            <span className="stepper-value" role="status">
-              {t('reflowSettings.lineHeightValue', { value: settings.lineHeight })}
-            </span>
-            <button
-              type="button"
-              className="stepper-button"
-              aria-label={t('reflowSettings.looser')}
-              disabled={leadingIndex >= LINE_HEIGHTS.length - 1}
-              onClick={() => onChange({ lineHeight: step(LINE_HEIGHTS, settings.lineHeight, 1) })}
-            >
-              +
-            </button>
-          </div>
-        </section>
-
-        <section className="setting" aria-labelledby="reflow-theme">
-          <h3 id="reflow-theme" className="setting-name">
-            {t('reflowSettings.theme')}
-          </h3>
-          <div className="themes" role="group" aria-labelledby="reflow-theme">
+        <SettingGroup icon={<ColourGroupIcon />} title={t('settings.groups.colour')}>
+          <div className="themes" role="group" aria-label={t('reflowSettings.theme')}>
             {themes.map((theme) => {
               const colors =
                 theme.value === 'custom'
@@ -196,83 +153,49 @@ export function ReflowSettingsSheet({ open, settings, onClose, onChange }: Reflo
               </label>
             </div>
           )}
-        </section>
+        </SettingGroup>
 
-        <section className="setting" aria-labelledby="reflow-width">
-          <h3 id="reflow-width" className="setting-name">
-            {t('reflowSettings.width')}
-          </h3>
-          <div className="segmented is-three" role="group" aria-labelledby="reflow-width">
-            {widths.map((width) => (
-              <button
-                key={width.value}
-                type="button"
-                className="segmented-option"
-                aria-pressed={settings.width === width.value}
-                onClick={() => onChange({ width: width.value })}
-              >
-                {width.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <SettingGroup icon={<LayoutGroupIcon />} title={t('settings.groups.layout')}>
+          <VisualChoice
+            name={t('reflowSettings.width')}
+            value={settings.width}
+            onChange={(width) => onChange({ width })}
+            choices={widths.map((width) => ({
+              value: width,
+              label: t(`reflowSettings.${width}`),
+              picture: <WidthDrawing size={width} />,
+            }))}
+          />
+          <VisualChoice
+            name={t('reflowSettings.margin')}
+            value={settings.margin}
+            onChange={(margin) => onChange({ margin })}
+            choices={margins.map((margin) => ({
+              value: margin,
+              label: t(`reflowSettings.${margin}`),
+              picture: <MarginDrawing size={margin} />,
+            }))}
+          />
+          <VisualChoice
+            name={t('reflowSettings.align')}
+            value={settings.align}
+            onChange={(align) => onChange({ align })}
+            choices={alignments.map((align) => ({
+              value: align,
+              label: align === 'start' ? t('reflowSettings.alignStart') : t('reflowSettings.alignJustify'),
+              picture: <AlignDrawing align={align} />,
+            }))}
+          />
+        </SettingGroup>
 
-        <section className="setting" aria-labelledby="reflow-margin">
-          <h3 id="reflow-margin" className="setting-name">
-            {t('reflowSettings.margin')}
-          </h3>
-          <div className="segmented is-three" role="group" aria-labelledby="reflow-margin">
-            {margins.map((margin) => (
-              <button
-                key={margin.value}
-                type="button"
-                className="segmented-option"
-                aria-pressed={settings.margin === margin.value}
-                onClick={() => onChange({ margin: margin.value })}
-              >
-                {margin.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="setting" aria-labelledby="reflow-align">
-          <h3 id="reflow-align" className="setting-name">
-            {t('reflowSettings.align')}
-          </h3>
-          <div className="segmented" role="group" aria-labelledby="reflow-align">
-            {alignments.map((alignment) => (
-              <button
-                key={alignment.value}
-                type="button"
-                className="segmented-option"
-                aria-pressed={settings.align === alignment.value}
-                onClick={() => onChange({ align: alignment.value })}
-              >
-                {alignment.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="setting setting-inline">
-          <div>
-            <h3 id="reflow-cleanup" className="setting-name">
-              {t('reflowSettings.cleanup')}
-            </h3>
-            <p className="setting-hint">{t('reflowSettings.cleanupHint')}</p>
-          </div>
-          <button
-            type="button"
-            className="switch"
-            role="switch"
-            aria-checked={settings.cleanup}
-            aria-labelledby="reflow-cleanup"
-            onClick={() => onChange({ cleanup: !settings.cleanup })}
-          >
-            <span className="switch-thumb" />
-          </button>
-        </section>
+        <SettingGroup icon={<CleanupGroupIcon />} title={t('settings.groups.cleanup')}>
+          <SwitchRow
+            name={t('reflowSettings.cleanup')}
+            hint={t('reflowSettings.cleanupHint')}
+            checked={settings.cleanup}
+            onChange={(cleanup) => onChange({ cleanup })}
+          />
+        </SettingGroup>
       </div>
     </Sheet>
   )

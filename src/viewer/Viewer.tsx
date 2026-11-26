@@ -74,7 +74,6 @@ const GAP = 8
 const MAX_FIT_WIDTH = 960
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 5
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5]
 
 const clampZoom = (zoom: number) => Math.min(Math.max(zoom, MIN_ZOOM), MAX_ZOOM)
 
@@ -553,12 +552,6 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
     [targetAt, zoomTo],
   )
 
-  const zoomStep = (direction: -1 | 1) => {
-    const steps = direction > 0 ? ZOOM_STEPS : [...ZOOM_STEPS].reverse()
-    const next = steps.find((step) => (direction > 0 ? step > zoom + 0.001 : step < zoom - 0.001))
-    if (next !== undefined) zoomAtCenter(next)
-  }
-
   useZoomGestures({
     surface: scrollerRef,
     targetAt,
@@ -826,12 +819,11 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
         open={sheet === 'settings' && !textMode}
         settings={settings}
         zoom={zoom}
-        canZoomOut={zoom > MIN_ZOOM + 0.001}
-        canZoomIn={zoom < MAX_ZOOM - 0.001}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
         onClose={closeSheet}
         onChange={updateSettings}
-        onZoomStep={zoomStep}
-        onZoomReset={() => zoomAtCenter(1)}
+        onZoom={zoomAtCenter}
       />
     </div>
   )

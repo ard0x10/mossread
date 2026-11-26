@@ -2,6 +2,19 @@ import { useEffect, useId, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { loadOutline, type OutlineEntry } from '../pdf/outline'
 import type { PDFDocumentProxy } from '../pdf/pdfjs'
+import {
+  AdvanceDrawing,
+  FastMark,
+  GuideDrawing,
+  LinesDrawing,
+  NeighboursDrawing,
+  PaceGroupIcon,
+  ReadGroupIcon,
+  ShowGroupIcon,
+  SlowMark,
+  WordsDrawing,
+} from '../ui/drawings'
+import { SettingGroup, Slider, VisualChoice } from '../ui/settings'
 import { Sheet } from '../viewer/Sheet'
 import { MAX_WPM, MIN_WPM, NEIGHBOURS, SIZES, WPM_STEP, type FocusSettings } from './settings'
 import type { Scope } from './stream'
@@ -61,11 +74,8 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
 
   return (
     <Sheet open={open} title={t('focus.optionsTitle')} onClose={onClose}>
-      <div className="settings">
-        <section className="setting" aria-labelledby="focus-scope">
-          <h3 id="focus-scope" className="setting-name">
-            {t('focus.read')}
-          </h3>
+      <div className="settings is-grouped">
+        <SettingGroup icon={<ReadGroupIcon />} title={t('focus.read')}>
           <div className="scope-list">
             {scope.kind === 'selection' && (
               <button type="button" className="scope-option" aria-pressed="true" onClick={onClose}>
@@ -163,145 +173,87 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
               </ol>
             </details>
           )}
-        </section>
+        </SettingGroup>
 
-        {kind === 'line' && (
-          <section className="setting" aria-labelledby="focus-guide">
-            <h3 id="focus-guide" className="setting-name">
-              {t('focus.guide')}
-            </h3>
-            <div className="segmented" role="group" aria-labelledby="focus-guide">
-              {(['line', 'words'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="segmented-option"
-                  aria-pressed={settings.lineGuide === value}
-                  onClick={() => onChange({ lineGuide: value })}
-                >
-                  {value === 'line' ? t('focus.guideLine') : t('focus.guideWords')}
-                </button>
-              ))}
-            </div>
-            <p className="setting-hint">{t('focus.guideHint')}</p>
-          </section>
-        )}
+        <SettingGroup icon={<ShowGroupIcon />} title={t('settings.groups.show')}>
+          {kind === 'line' && (
+            <VisualChoice
+              name={t('focus.guide')}
+              hint={t('focus.guideHint')}
+              value={settings.lineGuide}
+              onChange={(lineGuide) => onChange({ lineGuide })}
+              choices={(['line', 'words'] as const).map((value) => ({
+                value,
+                label: value === 'line' ? t('focus.guideLine') : t('focus.guideWords'),
+                picture: <GuideDrawing guide={value} />,
+              }))}
+            />
+          )}
+          {(kind === 'focus' || guided) && (
+            <VisualChoice
+              name={t('focus.size')}
+              value={settings.size}
+              onChange={(size) => onChange({ size })}
+              choices={SIZES.map((value) => ({ value, label: String(value), picture: <WordsDrawing count={value} /> }))}
+            />
+          )}
+          {kind === 'focus' && (
+            <VisualChoice
+              name={t('focus.neighbours')}
+              hint={t('focus.neighboursHint')}
+              value={settings.neighbours}
+              onChange={(neighbours) => onChange({ neighbours })}
+              choices={NEIGHBOURS.map((value) => ({
+                value,
+                label: value === 0 ? t('focus.neighboursOff') : String(value),
+                picture: <NeighboursDrawing count={value} />,
+              }))}
+            />
+          )}
+          {kind === 'line' && (
+            <VisualChoice
+              name={t('focus.lines')}
+              value={settings.lines}
+              onChange={(lines) => onChange({ lines })}
+              choices={([1, 3] as const).map((value) => ({
+                value,
+                label: t('focus.linesValue', { count: value }),
+                picture: <LinesDrawing count={value} />,
+              }))}
+            />
+          )}
+        </SettingGroup>
 
-        {(kind === 'focus' || guided) && (
-          <section className="setting" aria-labelledby="focus-size">
-            <h3 id="focus-size" className="setting-name">
-              {t('focus.size')}
-            </h3>
-            <div className="segmented is-five" role="group" aria-labelledby="focus-size">
-              {SIZES.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="segmented-option"
-                  aria-pressed={settings.size === value}
-                  onClick={() => onChange({ size: value })}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {kind === 'focus' && (
-          <section className="setting" aria-labelledby="focus-neighbours">
-            <h3 id="focus-neighbours" className="setting-name">
-              {t('focus.neighbours')}
-            </h3>
-            <div className="segmented is-three" role="group" aria-labelledby="focus-neighbours">
-              {NEIGHBOURS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="segmented-option"
-                  aria-pressed={settings.neighbours === value}
-                  onClick={() => onChange({ neighbours: value })}
-                >
-                  {value === 0 ? t('focus.neighboursOff') : value}
-                </button>
-              ))}
-            </div>
-            <p className="setting-hint">{t('focus.neighboursHint')}</p>
-          </section>
-        )}
-
-        {kind === 'line' && (
-          <>
-            <section className="setting" aria-labelledby="focus-lines">
-              <h3 id="focus-lines" className="setting-name">
-                {t('focus.lines')}
-              </h3>
-              <div className="segmented" role="group" aria-labelledby="focus-lines">
-                {([1, 3] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className="segmented-option"
-                    aria-pressed={settings.lines === value}
-                    onClick={() => onChange({ lines: value })}
-                  >
-                    {t('focus.linesValue', { count: value })}
-                  </button>
-                ))}
-              </div>
-            </section>
-            {!guided && (
-              <section className="setting" aria-labelledby="focus-advance">
-                <h3 id="focus-advance" className="setting-name">
-                  {t('focus.advance')}
-                </h3>
-                <div className="segmented" role="group" aria-labelledby="focus-advance">
-                  {(['tap', 'auto'] as const).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className="segmented-option"
-                      aria-pressed={settings.lineAdvance === value}
-                      onClick={() => onChange({ lineAdvance: value })}
-                    >
-                      {value === 'tap' ? t('focus.advanceTap') : t('focus.advanceAuto')}
-                    </button>
-                  ))}
-                </div>
-              </section>
+        {(showSpeed || (kind === 'line' && !guided)) && (
+          <SettingGroup icon={<PaceGroupIcon />} title={t('settings.groups.pace')}>
+            {kind === 'line' && !guided && (
+              <VisualChoice
+                name={t('focus.advance')}
+                value={settings.lineAdvance}
+                onChange={(lineAdvance) => onChange({ lineAdvance })}
+                choices={(['tap', 'auto'] as const).map((value) => ({
+                  value,
+                  label: value === 'tap' ? t('focus.advanceTap') : t('focus.advanceAuto'),
+                  picture: <AdvanceDrawing advance={value} />,
+                }))}
+              />
             )}
-          </>
-        )}
-
-        {showSpeed && (
-          <section className="setting setting-inline" aria-labelledby="focus-speed">
-            <h3 id="focus-speed" className="setting-name">
-              {t('focus.speed')}
-            </h3>
-            <div className="stepper">
-              <button
-                type="button"
-                className="stepper-button"
-                aria-label={t('focus.slower')}
-                disabled={settings.wpm <= MIN_WPM}
-                onClick={() => onChange({ wpm: Math.max(MIN_WPM, settings.wpm - WPM_STEP) })}
-              >
-                {'−'}
-              </button>
-              <span className="stepper-value" role="status">
-                {t('focus.wpm', { value: settings.wpm })}
-              </span>
-              <button
-                type="button"
-                className="stepper-button"
-                aria-label={t('focus.faster')}
-                disabled={settings.wpm >= MAX_WPM}
-                onClick={() => onChange({ wpm: Math.min(MAX_WPM, settings.wpm + WPM_STEP) })}
-              >
-                +
-              </button>
-            </div>
-          </section>
+            {showSpeed && (
+              <Slider
+                name={t('focus.speed')}
+                min={MIN_WPM}
+                max={MAX_WPM}
+                step={WPM_STEP}
+                value={settings.wpm}
+                valueText={(value) => t('focus.wpm', { value })}
+                lower={<SlowMark />}
+                upper={<FastMark />}
+                lowerLabel={t('focus.slower')}
+                upperLabel={t('focus.faster')}
+                onChange={(wpm) => onChange({ wpm })}
+              />
+            )}
+          </SettingGroup>
         )}
       </div>
     </Sheet>
