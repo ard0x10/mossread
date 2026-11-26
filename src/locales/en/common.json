@@ -40,6 +40,8 @@
   },
   "viewer": {
     "home": "Home",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Leave full screen",
     "contents": "Contents",
     "settings": "Settings",
     "documentLabel": "{{name}}",

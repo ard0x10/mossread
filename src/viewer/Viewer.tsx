@@ -6,6 +6,7 @@ import { LineFocus, type LineFocusHandle } from '../focus/LineFocus'
 import { useFocusSettings } from '../focus/settings'
 import type { Locator, Scope, Spot } from '../focus/stream'
 import { useBackHandler } from '../lib/backStack'
+import { useFullscreen } from '../lib/useFullscreen'
 import { getOcrPages, putOcrPage, updateBook, type SavedPosition } from '../library/db'
 import { isOcrLang, OcrEngine, type OcrLang } from '../ocr/engine'
 import type { OpenedPdf } from '../pdf/pdfjs'
@@ -18,7 +19,9 @@ import {
   ArrowUpIcon,
   CloseIcon,
   ContentsIcon,
+  ExitFullscreenIcon,
   FocusIcon,
+  FullscreenIcon,
   HomeIcon,
   LineIcon,
   PageIcon,
@@ -95,6 +98,7 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
   const { t } = useTranslation()
   // A book from the library reopens in the view it was left in.
   const [settings, updateSettings] = useViewerSettings(start?.mode)
+  const fullscreen = useFullscreen()
   const { flow, night, mode } = settings
   const [reflowSettings, updateReflowSettings] = useReflowSettings()
   const reflowRef = useRef<ReflowHandle>(null)
@@ -634,6 +638,18 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
           <HomeIcon />
         </button>
         <h1 className="viewer-title">{fileName}</h1>
+        {fullscreen.available && (
+          <button
+            type="button"
+            className="bar-icon"
+            aria-pressed={fullscreen.active}
+            aria-label={fullscreen.active ? t('viewer.exitFullscreen') : t('viewer.fullscreen')}
+            title={fullscreen.active ? t('viewer.exitFullscreen') : t('viewer.fullscreen')}
+            onClick={fullscreen.toggle}
+          >
+            {fullscreen.active ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+          </button>
+        )}
         <div className="mode-switch" role="group" aria-label={t('viewer.modeLabel')}>
           <button
             type="button"
