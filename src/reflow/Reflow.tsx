@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import type { Locator } from '../focus/stream'
 import type { OcrLang } from '../ocr/engine'
 import { OcrOffer } from '../ocr/OcrOffer'
+import { ImageIcon, PageIcon } from '../ui/icons'
 import type { Block } from '../text/layout'
 import type { TextStore } from '../text/store'
 import {
@@ -444,9 +445,20 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
   if (!section.hasText) {
     return (
       <section className="reflow-page" data-page={page}>
-        <button type="button" className="reflow-card" data-b={0} onClick={() => onShowPage({ page, y: 0 })}>
-          <span>{t('reflow.pageWithoutText', { page })}</span>
-          <span className="reflow-card-action">{t('reflow.showPage')}</span>
+        <button
+          type="button"
+          className="reflow-card"
+          data-b={0}
+          aria-label={`${t('reflow.pageWithoutText', { page })} ${t('reflow.showPage')}`}
+          onClick={() => onShowPage({ page, y: 0 })}
+        >
+          <span className="reflow-card-what">
+            <ImageIcon />
+            {t('reflow.pageShort', { page })}
+          </span>
+          <span className="reflow-card-action">
+            <PageIcon />
+          </span>
         </button>
       </section>
     )
@@ -488,10 +500,16 @@ const SectionView = memo(function SectionView({ store, page, cleanup, onShowPage
                 className="reflow-card"
                 data-b={index}
                 ref={register(block)}
+                aria-label={`${t('reflow.figure', { page: block.page })} ${t('reflow.showPage')}`}
                 onClick={() => onShowPage({ page: block.page, y: block.y })}
               >
-                <span>{t('reflow.figure', { page: block.page })}</span>
-                <span className="reflow-card-action">{t('reflow.showPage')}</span>
+                <span className="reflow-card-what">
+                  <ImageIcon />
+                  {t('reflow.pageShort', { page: block.page })}
+                </span>
+                <span className="reflow-card-action">
+                  <PageIcon />
+                </span>
               </button>
             )
           default:

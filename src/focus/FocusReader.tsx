@@ -10,6 +10,18 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TextStore } from '../text/store'
+import {
+  ClockIcon,
+  CloseIcon,
+  CodeIcon,
+  ImageIcon,
+  PauseIcon,
+  PlayIcon,
+  ReplayIcon,
+  SentenceBackIcon,
+  SettingsIcon,
+  SkipIcon,
+} from '../ui/icons'
 import type { FocusSettings } from './settings'
 import { spotOf, WordStream, type Scope, type Spot } from './stream'
 import { useWakeLock } from './useWakeLock'
@@ -287,12 +299,12 @@ export function FocusReader({
       onPointerCancel={() => (press.current = null)}
     >
       <header className="focus-bar focus-topbar">
-        <button type="button" className="button-quiet" onClick={close}>
-          {t('focus.done')}
+        <button type="button" className="bar-icon" aria-label={t('focus.done')} title={t('focus.done')} onClick={close}>
+          <CloseIcon />
         </button>
         <p className="focus-scope">{scopeLabel}</p>
-        <button type="button" className="button-quiet" onClick={onOptions}>
-          {t('focus.options')}
+        <button type="button" className="bar-icon" aria-label={t('focus.options')} title={t('focus.options')} onClick={onOptions}>
+          <SettingsIcon />
         </button>
       </header>
 
@@ -309,10 +321,12 @@ export function FocusReader({
             })}
           </p>
         ) : card ? (
-          <p className="focus-card">
-            {card.label === 'code'
-              ? t('focus.code', { page: card.at.page })
-              : t('reflow.figure', { page: card.at.page })}
+          <p
+            className="focus-card"
+            aria-label={card.label === 'code' ? t('focus.code', { page: card.at.page }) : t('reflow.figure', { page: card.at.page })}
+          >
+            {card.label === 'code' ? <CodeIcon /> : <ImageIcon />}
+            <span>{t('reflow.pageShort', { page: card.at.page })}</span>
           </p>
         ) : (
           <div ref={wordRef} className="focus-word">
@@ -346,22 +360,40 @@ export function FocusReader({
         >
           <span style={{ inlineSize: `${progress * 100}%` }} />
         </div>
-        <p className="focus-left">
+        <p
+          className="focus-left"
+          title={
+            minutesLeft <= 1
+              ? t('focus.underMinute')
+              : minutesLeft < 60
+                ? t('focus.minutesLeft', { count: minutesLeft })
+                : t('focus.hoursLeft', { hours: Math.floor(minutesLeft / 60), minutes: minutesLeft % 60 })
+          }
+        >
+          <ClockIcon />
           {minutesLeft <= 1
-            ? t('focus.underMinute')
+            ? t('focus.underMinuteShort')
             : minutesLeft < 60
-              ? t('focus.minutesLeft', { count: minutesLeft })
-              : t('focus.hoursLeft', { hours: Math.floor(minutesLeft / 60), minutes: minutesLeft % 60 })}
+              ? t('focus.minutesShort', { count: minutesLeft })
+              : t('focus.hoursShort', { hours: Math.floor(minutesLeft / 60), minutes: minutesLeft % 60 })}
         </p>
         <div className="focus-controls">
-          <button type="button" className="focus-button" aria-label={t('focus.backLabel')} onClick={back}>
-            {t('focus.back')}
+          <button type="button" className="focus-button" aria-label={t('focus.backLabel')} title={t('focus.backLabel')} onClick={back}>
+            <SentenceBackIcon />
           </button>
-          <button type="button" className="focus-button is-main" onClick={toggle} disabled={empty}>
-            {ended ? t('focus.again') : playing ? t('focus.pause') : t('focus.play')}
+          <button
+            type="button"
+            className="focus-button is-main"
+            aria-label={ended ? t('focus.again') : playing ? t('focus.pause') : t('focus.play')}
+            title={ended ? t('focus.again') : playing ? t('focus.pause') : t('focus.play')}
+            onClick={toggle}
+            disabled={empty}
+          >
+            {ended ? <ReplayIcon /> : playing ? <PauseIcon /> : <PlayIcon />}
           </button>
-          <button type="button" className="focus-button" aria-label={t('focus.skipLabel')} onClick={skip}>
-            {t('focus.skip')}
+          <button type="button" className="focus-button" aria-label={t('focus.skipLabel')} title={t('focus.skipLabel')} onClick={skip}>
+            <SkipIcon />
+            <span className="focus-skip-count">10</span>
           </button>
         </div>
       </footer>

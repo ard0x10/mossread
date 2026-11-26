@@ -3,7 +3,29 @@ import { useTranslation } from 'react-i18next'
 import { Sheet } from '../viewer/Sheet'
 import { promptInstall, readHintDismissed, useInstallWay, writeHintDismissed } from '../pwa/pwa'
 import { useFileSize } from '../lib/useFileSize'
+import { CloseIcon, DownloadIcon, TrashIcon } from '../ui/icons'
 import { deleteBook, readRemember, writeRemember, type Book } from './db'
+
+/** How much of a book is read, as a ring that fills on the corner of its cover. */
+function ProgressRing({ value }: { value: number }) {
+  const r = 9
+  const length = 2 * Math.PI * r
+  return (
+    <span className="shelf-ring" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r={r} className="shelf-ring-track" />
+        <circle
+          cx="12"
+          cy="12"
+          r={r}
+          className="shelf-ring-fill"
+          strokeDasharray={length}
+          strokeDashoffset={length * (1 - Math.min(1, value))}
+        />
+      </svg>
+    </span>
+  )
+}
 
 interface ShelfProps {
   books: Book[]
@@ -29,12 +51,18 @@ function InstallHint() {
     <div className="install-hint">
       <p className="install-hint-text">{way === 'apple' ? t('install.apple') : t('install.prompt')}</p>
       {way === 'prompt' && (
-        <button type="button" className="button-quiet" onClick={() => void promptInstall().then(close)}>
-          {t('install.install')}
+        <button
+          type="button"
+          className="icon-button is-accent"
+          aria-label={t('install.install')}
+          title={t('install.install')}
+          onClick={() => void promptInstall().then(close)}
+        >
+          <DownloadIcon />
         </button>
       )}
-      <button type="button" className="install-hint-close" aria-label={t('install.close')} onClick={close}>
-        {'×'}
+      <button type="button" className="icon-button" aria-label={t('install.close')} title={t('install.close')} onClick={close}>
+        <CloseIcon />
       </button>
     </div>
   )
@@ -74,14 +102,11 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
                   onClick={() => onOpen(book)}
                   aria-label={t('library.openLabel', { name: book.name, progress: book.progress })}
                 >
-                  <Cover book={book} />
-                  <span className="shelf-name">{book.name.replace(/\.pdf$/i, '')}</span>
-                  <span className="shelf-meta">
-                    <span className="shelf-bar" aria-hidden="true">
-                      <span style={{ inlineSize: `${Math.round(book.progress * 100)}%` }} />
-                    </span>
-                    {t('library.progress', { value: book.progress })}
+                  <span className="shelf-cover-wrap">
+                    <Cover book={book} />
+                    {book.progress > 0 && <ProgressRing value={book.progress} />}
                   </span>
+                  <span className="shelf-name">{book.name.replace(/\.pdf$/i, '')}</span>
                 </button>
                 <button
                   type="button"
@@ -92,7 +117,7 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
                     setDoomed(book)
                   }}
                 >
-                  {'×'}
+                  <CloseIcon />
                 </button>
               </li>
             ))}
@@ -135,12 +160,13 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
               </p>
             )}
             <div className="confirm-actions">
-              <button type="button" className="button-quiet" onClick={() => setDoomed(null)}>
+              <button type="button" className="button-quiet icon-action" onClick={() => setDoomed(null)}>
+                <CloseIcon />
                 {t('library.cancel')}
               </button>
               <button
                 type="button"
-                className="button-danger"
+                className="button-danger icon-action"
                 onClick={() => {
                   deleteBook(doomed.id).then(
                     () => {
@@ -151,6 +177,7 @@ export function Shelf({ books, busy, onOpen, onDeleted }: ShelfProps) {
                   )
                 }}
               >
+                <TrashIcon />
                 {t('library.delete')}
               </button>
             </div>

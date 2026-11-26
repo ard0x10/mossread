@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFileSize } from '../lib/useFileSize'
+import { ScanIcon } from '../ui/icons'
 import { defaultOcrLang, downloadSize, OCR_LANGS, type OcrLang } from './engine'
 
 interface OcrOfferProps {
@@ -33,8 +34,14 @@ export function OcrOffer({ onStart }: OcrOfferProps) {
           </button>
         ))}
       </div>
-      <button type="button" className="button-primary ocr-offer-start" onClick={() => onStart(lang)}>
-        {t('ocr.start', { size: fileSize(downloadSize(lang)) })}
+      <button
+        type="button"
+        className="button-primary ocr-offer-start icon-action"
+        aria-label={t('ocr.start', { size: fileSize(downloadSize(lang)) })}
+        onClick={() => onStart(lang)}
+      >
+        <ScanIcon />
+        {fileSize(downloadSize(lang))}
       </button>
       <p className="ocr-offer-note">{t('ocr.note')}</p>
     </div>

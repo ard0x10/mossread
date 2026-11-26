@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CloseIcon, OpenFileIcon, UnlockIcon } from './ui/icons'
 import { getFile, listBooks, type Book } from './library/db'
 import { Shelf } from './library/Shelf'
 import type { OpenedPdf } from './pdf/pdfjs'
@@ -180,18 +181,26 @@ export function Home({ onOpen }: HomeProps) {
               </p>
             )}
             <div className="home-password-actions">
-              <button type="submit" className="button-primary" disabled={!password}>
-                {t('home.passwordSubmit')}
+              <button
+                type="submit"
+                className="button-primary icon-action"
+                disabled={!password}
+                aria-label={t('home.passwordSubmit')}
+                title={t('home.passwordSubmit')}
+              >
+                <UnlockIcon />
               </button>
               <button
                 type="button"
-                className="button-quiet"
+                className="icon-button"
+                aria-label={t('home.passwordCancel')}
+                title={t('home.passwordCancel')}
                 onClick={() => {
                   setPassword('')
                   setState({ kind: 'idle' })
                 }}
               >
-                {t('home.passwordCancel')}
+                <CloseIcon />
               </button>
             </div>
           </form>
@@ -208,11 +217,18 @@ export function Home({ onOpen }: HomeProps) {
             )}
             <button
               type="button"
-              className="button-primary button-large"
+              className="home-open"
+              title={t('home.open')}
               disabled={opening}
+              aria-busy={opening}
               onClick={() => inputRef.current?.click()}
             >
-              {opening ? t('home.opening', { name: state.name }) : t('home.open')}
+              <span className="home-open-circle">
+                <OpenFileIcon />
+              </span>
+              <span className="home-open-label">
+                {opening ? t('home.opening', { name: state.name }) : t('home.openShort')}
+              </span>
             </button>
             <p className="home-drop-hint">{t('home.dropHint')}</p>
             <input

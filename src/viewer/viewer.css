@@ -107,7 +107,23 @@
   color: var(--accent);
 }
 
+/* Play, pause or the next line: the main control of a bar, filled. */
+.bar-play {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
 .bar-mode {
+  display: inline-grid;
+  place-items: center;
   flex: none;
   min-block-size: 2.5rem;
   padding-inline: 1.125rem;
@@ -125,6 +141,10 @@
 
   .bar-mode:hover {
     background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .bar-play:hover {
+    background: color-mix(in srgb, var(--accent) 88%, var(--text));
   }
 }
 

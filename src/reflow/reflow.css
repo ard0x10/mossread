@@ -205,7 +205,15 @@
   text-align: start;
 }
 
+.reflow-card-what {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .reflow-card-action {
+  display: inline-grid;
+  place-items: center;
   color: var(--accent);
   font-weight: 600;
 }
@@ -262,6 +270,8 @@
 }
 
 .mode-switch-option {
+  display: inline-grid;
+  place-items: center;
   min-block-size: 2.25rem;
   padding-inline: 0.75rem;
   border: 0;

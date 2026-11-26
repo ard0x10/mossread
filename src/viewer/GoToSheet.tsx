@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ArrowRightIcon } from '../ui/icons'
 import { Sheet } from './Sheet'
 
 interface GoToSheetProps {
@@ -48,8 +49,14 @@ export function GoToSheet({ open, total, onClose, onGo }: GoToSheetProps) {
             value={value}
             onChange={(event) => setValue(event.target.value.replace(/\D/g, ''))}
           />
-          <button type="submit" className="button-primary" disabled={value === ''}>
-            {t('goto.submit')}
+          <button
+            type="submit"
+            className="button-primary icon-action"
+            disabled={value === ''}
+            aria-label={t('goto.submit')}
+            title={t('goto.submit')}
+          >
+            <ArrowRightIcon />
           </button>
         </div>
         <p id={hintId} className="sheet-note">

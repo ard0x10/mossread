@@ -14,6 +14,7 @@ import {
   SlowMark,
   WordsDrawing,
 } from '../ui/drawings'
+import { PlayIcon } from '../ui/icons'
 import { SettingGroup, Slider, VisualChoice } from '../ui/settings'
 import { Sheet } from '../viewer/Sheet'
 import { MAX_WPM, MIN_WPM, NEIGHBOURS, SIZES, WPM_STEP, type FocusSettings } from './settings'
@@ -140,8 +141,9 @@ export function FocusSheet({ open, kind, doc, scope, page, settings, onChange, o
                 onChange={(event) => setTo(event.target.value.replace(/\D/g, ''))}
               />
             </div>
-            <button type="submit" className="button-primary" disabled={from === ''}>
-              {t('focus.readPages')}
+            <button type="submit" className="button-primary icon-action" disabled={from === ''}>
+              <PlayIcon />
+              {t('focus.readPagesShort')}
             </button>
           </form>
           {entries && entries.length > 0 && (

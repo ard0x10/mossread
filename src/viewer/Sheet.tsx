@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CloseIcon } from '../ui/icons'
 import { useBackHandler } from '../lib/backStack'
 
 interface SheetProps {
@@ -42,8 +43,8 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
           <h2 id={titleId} className="sheet-title">
             {title}
           </h2>
-          <button type="button" className="button-quiet" onClick={onClose}>
-            {t('sheet.close')}
+          <button type="button" className="icon-button" aria-label={t('sheet.close')} title={t('sheet.close')} onClick={onClose}>
+            <CloseIcon />
           </button>
         </header>
         {open && children}

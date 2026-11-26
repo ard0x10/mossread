@@ -13,7 +13,20 @@ import { Reflow, type Position, type ReflowHandle } from '../reflow/Reflow'
 import { ReflowSettingsSheet } from '../reflow/ReflowSettingsSheet'
 import { FONT_STACKS, useReflowSettings } from '../reflow/settings'
 import { TextStore } from '../text/store'
-import { ContentsIcon, HomeIcon, SettingsIcon } from '../ui/icons'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CloseIcon,
+  ContentsIcon,
+  FocusIcon,
+  HomeIcon,
+  LineIcon,
+  PageIcon,
+  PauseIcon,
+  PlayIcon,
+  SettingsIcon,
+  TextIcon,
+} from '../ui/icons'
 import { ContentsSheet } from './ContentsSheet'
 import { GoToSheet } from './GoToSheet'
 import { PageView, type Size } from './PageView'
@@ -626,17 +639,21 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
             type="button"
             className="mode-switch-option"
             aria-pressed={!textMode}
+            aria-label={t('viewer.modePage')}
+            title={t('viewer.modePage')}
             onClick={() => switchMode('page')}
           >
-            {t('viewer.modePage')}
+            <PageIcon />
           </button>
           <button
             type="button"
             className="mode-switch-option"
             aria-pressed={textMode}
+            aria-label={t('viewer.modeText')}
+            title={t('viewer.modeText')}
             onClick={() => switchMode('text')}
           >
-            {t('viewer.modeText')}
+            <TextIcon />
           </button>
         </div>
       </header>
@@ -704,35 +721,70 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
 
       {picked && !reading && (
         <div className="read-with" role="toolbar" aria-label={t('focus.readWith')} onPointerDown={(event) => event.preventDefault()}>
-          <span className="read-with-label">{t('focus.readWith')}</span>
-          <button type="button" className="button-quiet" onClick={() => startReading('focus', picked)}>
-            {t('focus.modeFocus')}
+          <button
+            type="button"
+            className="bar-icon"
+            aria-label={t('focus.readWithFocus')}
+            title={t('focus.readWithFocus')}
+            onClick={() => startReading('focus', picked)}
+          >
+            <FocusIcon />
           </button>
-          <button type="button" className="button-quiet" onClick={() => startReading('line', picked)}>
-            {t('focus.modeLine')}
+          <button
+            type="button"
+            className="bar-icon"
+            aria-label={t('focus.readWithLine')}
+            title={t('focus.readWithLine')}
+            onClick={() => startReading('line', picked)}
+          >
+            <LineIcon />
           </button>
         </div>
       )}
 
       {lineMode ? (
         <nav ref={bottomBarRef} className="viewer-bar viewer-bottombar line-bar" aria-label={t('focus.lineTools')}>
-          <button type="button" className="button-quiet" onClick={closeLine}>
-            {t('focus.done')}
+          <button type="button" className="bar-icon" aria-label={t('focus.done')} title={t('focus.done')} onClick={closeLine}>
+            <CloseIcon />
           </button>
-          <button type="button" className="button-quiet" aria-label={t('focus.previousLineLabel')} onClick={() => lineRef.current?.step(-1)}>
-            {t('focus.previousLine')}
+          <button
+            type="button"
+            className="bar-icon"
+            aria-label={t('focus.previousLineLabel')}
+            title={t('focus.previousLineLabel')}
+            onClick={() => lineRef.current?.step(-1)}
+          >
+            <ArrowUpIcon />
           </button>
           {focusSettings.lineAdvance === 'auto' || focusSettings.lineGuide === 'words' ? (
-            <button type="button" className="button-quiet" onClick={() => setLinePlaying((value) => !value)}>
-              {linePlaying ? t('focus.pause') : t('focus.play')}
+            <button
+              type="button"
+              className="bar-play"
+              aria-label={linePlaying ? t('focus.pause') : t('focus.play')}
+              title={linePlaying ? t('focus.pause') : t('focus.play')}
+              onClick={() => setLinePlaying((value) => !value)}
+            >
+              {linePlaying ? <PauseIcon /> : <PlayIcon />}
             </button>
           ) : (
-            <button type="button" className="button-quiet" aria-label={t('focus.nextLineLabel')} onClick={() => lineRef.current?.step(1)}>
-              {t('focus.nextLine')}
+            <button
+              type="button"
+              className="bar-play"
+              aria-label={t('focus.nextLineLabel')}
+              title={t('focus.nextLineLabel')}
+              onClick={() => lineRef.current?.step(1)}
+            >
+              <ArrowDownIcon />
             </button>
           )}
-          <button type="button" className="button-quiet" onClick={() => setSheet('focus')}>
-            {t('focus.options')}
+          <button
+            type="button"
+            className="bar-icon"
+            aria-label={t('focus.options')}
+            title={t('focus.options')}
+            onClick={() => setSheet('focus')}
+          >
+            <SettingsIcon />
           </button>
         </nav>
       ) : (
@@ -746,8 +798,14 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
           >
             <ContentsIcon />
           </button>
-          <button type="button" className="bar-mode" onClick={() => startReading('focus')}>
-            {t('focus.modeFocus')}
+          <button
+            type="button"
+            className="bar-mode"
+            aria-label={t('focus.modeFocus')}
+            title={t('focus.modeFocus')}
+            onClick={() => startReading('focus')}
+          >
+            <FocusIcon />
           </button>
           <button
             type="button"
@@ -757,8 +815,14 @@ export function Viewer({ pdf, fileName, start, bookId = null, ocrLang: savedOcrL
           >
             {t('viewer.pageIndicator', { current: shownPage, total })}
           </button>
-          <button type="button" className="bar-mode" onClick={() => startReading('line')}>
-            {t('focus.modeLine')}
+          <button
+            type="button"
+            className="bar-mode"
+            aria-label={t('focus.modeLine')}
+            title={t('focus.modeLine')}
+            onClick={() => startReading('line')}
+          >
+            <LineIcon />
           </button>
           <button
             type="button"
