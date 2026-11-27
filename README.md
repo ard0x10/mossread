@@ -20,6 +20,9 @@ your files are never uploaded, and there is no account and no tracking.
   Choose the font, text size, line spacing, theme (light, sepia, dark, black
   or your own colours), column width, margins and alignment. Switching between
   the two views keeps your place.
+- **Settings you can see.** Every settings sheet is split into groups, each
+  choice is shown as a small drawing of what it does, and sizes, spacing,
+  speed and zoom are sliders.
 - **Focus.** Words appear one at a time, or a few at a time, in the same spot,
   at the speed you set. Pause to see the whole sentence, step back a sentence
   or skip ahead. You can also keep the words before and after in view,
@@ -31,11 +34,15 @@ your files are never uploaded, and there is no account and no tracking.
   Focus or Line focus. Both can also start from where you are, or cover a
   page, a range of pages or a chapter.
 - **Library.** Books you open stay on your device and reopen where you left
-  them. You can see how much space they take and delete any of them.
+  them. A ring on each cover shows how far you have read. You can see how
+  much space the books take and delete any of them.
 - **Scanned PDFs.** A PDF made only of pictures of pages can be read as text
   too. Mossread recognises the text on your device, page by page as you read,
   in English or Turkish, and keeps it with the book. The recogniser is
   downloaded the first time it is used and then works offline.
+- **Full screen.** One tap in the reader hides the browser's own bars, so the
+  page gets the whole screen, which helps when you turn the phone sideways.
+  The button only appears where the browser allows it.
 - **Offline and installable.** After the first visit Mossread opens without a
   connection. Add it to your home screen to use it like an app. On Android,
   installed Mossread shows up when you share a PDF from another app.
